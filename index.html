@@ -1,0 +1,906 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>REMS — Система учёта заявок на ремонт оргтехники</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css">
+  <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/fill/style.css">
+  <link rel="stylesheet" href="style.css">
+  <style>
+    /* ── Landing extras ────────────────────────────────────────── */
+
+    /* Hero — 2-column */
+    .hero {
+      padding: 0;
+      background: var(--clr-bg);
+      border-bottom: 1px solid var(--clr-border);
+      overflow: hidden;
+    }
+    .hero-2col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      min-height: 580px;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    .hero-text {
+      padding: 5rem 3rem 5rem 2rem;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: .4rem;
+      padding: .3rem .85rem;
+      background: var(--clr-accent-light);
+      color: var(--clr-accent);
+      border-radius: var(--radius-full);
+      font-size: var(--text-xs);
+      font-weight: 700;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      margin-bottom: 1.5rem;
+      width: fit-content;
+    }
+    .hero-title {
+      font-size: clamp(1.75rem, 3.5vw, 2.75rem);
+      font-weight: 800;
+      color: var(--clr-text-primary);
+      line-height: 1.15;
+      letter-spacing: -.02em;
+      margin-bottom: 1.25rem;
+    }
+    .hero-title .accent { color: var(--clr-accent); }
+    .hero-subtitle {
+      font-size: var(--text-base);
+      color: var(--clr-text-secondary);
+      line-height: 1.65;
+      margin-bottom: 2rem;
+      max-width: 460px;
+    }
+    .hero-actions { display: flex; gap: 1rem; flex-wrap: wrap; }
+
+    /* Hero mockup panel */
+    .hero-mockup {
+      background: var(--clr-navy);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 3rem 2rem;
+      position: relative;
+      overflow: hidden;
+    }
+    .hero-mockup::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 60% 60% at 80% 20%, rgba(13,148,136,.25) 0%, transparent 60%),
+        radial-gradient(ellipse 50% 50% at 20% 80%, rgba(13,148,136,.15) 0%, transparent 60%);
+    }
+    .mockup-window {
+      background: #fff;
+      border-radius: 14px;
+      box-shadow: 0 24px 60px rgba(0,0,0,.35);
+      width: 100%;
+      max-width: 400px;
+      overflow: hidden;
+      position: relative;
+      z-index: 1;
+    }
+    .mockup-topbar {
+      background: var(--clr-navy);
+      padding: .65rem 1rem;
+      display: flex;
+      align-items: center;
+      gap: .5rem;
+    }
+    .mockup-dot { width: .55rem; height: .55rem; border-radius: 50%; }
+    .mockup-dot.r { background: #ff5f57; }
+    .mockup-dot.y { background: #febc2e; }
+    .mockup-dot.g { background: #28c840; }
+    .mockup-title-bar {
+      flex: 1;
+      background: rgba(255,255,255,.08);
+      border-radius: 4px;
+      height: 1.2rem;
+      margin: 0 .5rem;
+      display: flex;
+      align-items: center;
+      padding: 0 .5rem;
+    }
+    .mockup-title-bar span { font-size: .6rem; color: rgba(255,255,255,.5); font-family: monospace; }
+    .mockup-body { padding: 1.25rem; }
+    .mockup-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1rem;
+    }
+    .mockup-logo {
+      display: flex;
+      align-items: center;
+      gap: .4rem;
+      font-weight: 700;
+      font-size: .8rem;
+      color: var(--clr-navy);
+    }
+    .mockup-logo-icon {
+      width: 1.5rem; height: 1.5rem;
+      background: var(--clr-navy);
+      border-radius: 5px;
+      display: flex; align-items: center; justify-content: center;
+      color: #fff; font-size: .7rem;
+    }
+    .mockup-stats {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: .5rem;
+      margin-bottom: 1rem;
+    }
+    .mockup-stat {
+      background: var(--clr-bg-muted);
+      border-radius: 8px;
+      padding: .6rem .5rem;
+      text-align: center;
+    }
+    .mockup-stat-val { font-size: .85rem; font-weight: 700; color: var(--clr-navy); line-height: 1; }
+    .mockup-stat-lbl { font-size: .55rem; color: var(--clr-text-muted); margin-top: .2rem; }
+    .mockup-section-label {
+      font-size: .6rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .07em;
+      color: var(--clr-text-muted);
+      margin-bottom: .5rem;
+    }
+    .mockup-req {
+      display: flex;
+      align-items: center;
+      gap: .6rem;
+      padding: .55rem .6rem;
+      border: 1px solid var(--clr-border);
+      border-radius: 8px;
+      margin-bottom: .4rem;
+      background: #fff;
+    }
+    .mockup-req-icon {
+      width: 1.6rem; height: 1.6rem;
+      border-radius: 6px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: .75rem;
+      flex-shrink: 0;
+    }
+    .mockup-req-icon.teal { background: var(--clr-accent-light); color: var(--clr-accent); }
+    .mockup-req-icon.navy { background: var(--clr-navy-light); color: var(--clr-navy); }
+    .mockup-req-main { flex: 1; min-width: 0; }
+    .mockup-req-title { font-size: .65rem; font-weight: 600; color: var(--clr-text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .mockup-req-sub   { font-size: .55rem; color: var(--clr-text-muted); }
+    .mockup-badge {
+      font-size: .5rem;
+      font-weight: 700;
+      padding: .15rem .4rem;
+      border-radius: 999px;
+      white-space: nowrap;
+    }
+    .mockup-badge.orange { background: #fff7ed; color: #c2410c; }
+    .mockup-badge.green  { background: var(--clr-accent-light); color: var(--clr-accent); }
+    .mockup-badge.blue   { background: var(--clr-navy-light); color: var(--clr-navy); }
+
+    /* Stats row — gray band */
+    .stats-row {
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 2.5rem 5rem;
+      padding: 3rem 1.5rem;
+      background: var(--clr-bg-subtle);
+      border-top: 1px solid var(--clr-border);
+      border-bottom: 1px solid var(--clr-border);
+    }
+    .stat-item { text-align: center; }
+    .stat-item-val   { font-size: 2rem; font-weight: 800; color: var(--clr-navy); line-height: 1; }
+    .stat-item-label { font-size: var(--text-sm); color: var(--clr-text-secondary); margin-top: .4rem; }
+
+    /* Two-guide cards */
+    .guide-cards {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.75rem;
+      max-width: 1060px;
+      margin: 0 auto;
+    }
+    .guide-card {
+      background: var(--clr-bg-subtle);
+      border: 1px solid var(--clr-border);
+      border-radius: var(--radius-xl);
+      padding: 2rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+    .guide-card-header {
+      display: flex;
+      align-items: flex-start;
+      gap: 1rem;
+    }
+    .guide-card-icon {
+      width: 2.75rem; height: 2.75rem;
+      border-radius: var(--radius-md);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.35rem;
+      flex-shrink: 0;
+    }
+    .guide-card-icon.teal { background: var(--clr-accent-light); color: var(--clr-accent); }
+    .guide-card-icon.navy { background: var(--clr-navy-light);   color: var(--clr-navy); }
+    .guide-card-tag {
+      font-size: var(--text-xs);
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .07em;
+      color: var(--clr-accent);
+      margin-bottom: .35rem;
+    }
+    .guide-card-tag.navy { color: var(--clr-navy); }
+    .guide-card-title {
+      font-size: var(--text-base);
+      font-weight: 700;
+      color: var(--clr-navy);
+      line-height: 1.3;
+    }
+    .guide-card-btn { margin-top: auto; align-self: flex-start; }
+
+    /* Teal/navy variants for guide step numbers */
+    .guide-step-num.teal {
+      background: rgba(13,148,136,.15);
+      border-color: var(--clr-accent);
+      color: var(--clr-accent);
+    }
+    .guide-step-num.navy {
+      background: rgba(30,58,95,.12);
+      border-color: var(--clr-navy);
+      color: var(--clr-navy);
+    }
+
+    /* Guide steps (inside cards) */
+    .guide-steps { display: flex; flex-direction: column; gap: .5rem; }
+    .guide-step {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 1rem;
+      align-items: flex-start;
+    }
+    .guide-step-left { display: flex; flex-direction: column; align-items: center; }
+    .guide-step-num {
+      width: 2.25rem; height: 2.25rem;
+      border-radius: 50%;
+      border: 2px solid var(--clr-accent);
+      display: flex; align-items: center; justify-content: center;
+      font-size: var(--text-xs); font-weight: 700; color: var(--clr-accent);
+      flex-shrink: 0;
+      background: var(--clr-accent-light);
+    }
+    .guide-step-line {
+      width: 2px;
+      flex: 1;
+      min-height: 1.25rem;
+      background: var(--clr-border);
+      margin: .3rem 0;
+    }
+    .guide-step-body { padding-top: .15rem; padding-bottom: .75rem; }
+    .guide-step-title {
+      font-size: var(--text-sm);
+      font-weight: 700;
+      color: var(--clr-navy);
+      margin-bottom: .25rem;
+    }
+    .guide-step-desc {
+      font-size: var(--text-xs);
+      color: var(--clr-text-secondary);
+      line-height: 1.6;
+    }
+
+    @media (max-width: 760px) {
+      .guide-cards { grid-template-columns: 1fr; }
+    }
+
+    /* Features */
+    .feature-card {
+      background: var(--clr-surface);
+      border: 1px solid var(--clr-border);
+    }
+    .feature-icon.navy { background: var(--clr-navy-light); color: var(--clr-navy); }
+
+    /* ── Request Statuses ───────────────────────────────────────── */
+    .status-flow {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr auto 1fr auto 1fr auto 1fr;
+      gap: .75rem;
+      align-items: start;
+      max-width: 1060px;
+      margin: 0 auto;
+    }
+    .status-arrow {
+      color: var(--clr-border);
+      font-size: 1.25rem;
+      padding-top: 1.35rem;
+      display: flex;
+      align-items: center;
+    }
+    .status-card {
+      background: var(--clr-surface);
+      border: 1px solid var(--clr-border);
+      border-radius: var(--radius-xl);
+      padding: 1.5rem 1rem;
+      text-align: center;
+      transition: box-shadow var(--trans-normal), transform var(--trans-normal);
+    }
+    .status-card:hover { box-shadow: var(--shadow-md); transform: translateY(-2px); }
+    .status-icon {
+      width: 2.75rem; height: 2.75rem;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.2rem;
+      margin: 0 auto .85rem;
+    }
+    .status-badge {
+      display: inline-block;
+      padding: .25rem .7rem;
+      border-radius: 999px;
+      font-size: var(--text-xs);
+      font-weight: 700;
+      margin-bottom: .75rem;
+    }
+    .status-desc {
+      font-size: var(--text-xs);
+      color: var(--clr-text-secondary);
+      line-height: 1.6;
+    }
+    /* Per-status color variants */
+    .status-new .status-icon        { background: var(--clr-navy-light);   color: var(--clr-navy); }
+    .status-new .status-badge       { background: var(--clr-navy-light);   color: var(--clr-navy); }
+    .status-accepted .status-icon   { background: #fef3c7; color: #b45309; }
+    .status-accepted .status-badge  { background: #fef3c7; color: #b45309; }
+    .status-progress .status-icon   { background: #fff7ed; color: #c2410c; }
+    .status-progress .status-badge  { background: #fff7ed; color: #c2410c; }
+    .status-done .status-icon       { background: var(--clr-accent-light); color: var(--clr-accent); }
+    .status-done .status-badge      { background: var(--clr-accent-light); color: var(--clr-accent); }
+    .status-closed .status-icon     { background: #f1f5f9; color: #64748b; }
+    .status-closed .status-badge    { background: #f1f5f9; color: #64748b; }
+
+    @media (max-width: 900px) {
+      .status-flow {
+        grid-template-columns: 1fr 1fr;
+      }
+      .status-arrow { display: none; }
+    }
+    @media (max-width: 520px) {
+      .status-flow { grid-template-columns: 1fr; }
+    }
+
+    /* Roles */
+    .role-pill-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 1.25rem;
+      max-width: 960px;
+      margin: 0 auto;
+    }
+    .role-pill {
+      background: var(--clr-surface);
+      border: 1px solid var(--clr-border);
+      border-radius: var(--radius-xl);
+      padding: 1.5rem;
+      transition: box-shadow var(--trans-normal), transform var(--trans-normal);
+    }
+    .role-pill:hover { box-shadow: var(--shadow-md); transform: translateY(-2px); }
+    .role-pill-icon {
+      width: 2.75rem; height: 2.75rem;
+      border-radius: var(--radius-md);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.25rem;
+      margin-bottom: 1rem;
+    }
+    .role-pill-icon.green { background: var(--clr-accent-light); color: var(--clr-accent); }
+    .role-pill-icon.navy  { background: var(--clr-navy-light);   color: var(--clr-navy); }
+    .role-pill-title { font-size: var(--text-base); font-weight: 600; margin-bottom: .4rem; color: var(--clr-navy); }
+    .role-pill-desc  { font-size: var(--text-sm); color: var(--clr-text-secondary); line-height: 1.55; }
+
+    /* Section label / title overrides */
+    .section-label { color: var(--clr-accent) !important; }
+    .section-title { color: var(--clr-navy)   !important; }
+
+    /* Responsive hero */
+    @media (max-width: 768px) {
+      .hero-2col {
+        grid-template-columns: 1fr;
+        min-height: auto;
+      }
+      .hero-text { padding: 3rem 1.5rem; }
+      .hero-mockup { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── Navbar ──────────────────────────────────────────────────── -->
+<header class="navbar">
+  <a href="/" class="navbar-brand">
+    <div class="navbar-logo"><i class="ph ph-wrench"></i></div>
+    <div>
+      <div class="navbar-title">REMS</div>
+      <div class="navbar-subtitle" data-i18n="app.tagline">Учёт заявок на ремонт оргтехники</div>
+    </div>
+  </a>
+  <div class="navbar-spacer"></div>
+  <div class="navbar-actions">
+    <div class="lang-switcher">
+      <button type="button" class="lang-btn active" data-lang="ru">RU</button>
+      <button type="button" class="lang-btn"        data-lang="en">EN</button>
+    </div>
+    <a href="/pages/login.html" class="btn btn-secondary" data-i18n="landing.cta_secondary">Войти</a>
+    <a href="/pages/register.html" class="btn btn-navy">
+      <i class="ph ph-user-plus"></i>
+      <span data-i18n="auth.register.title">Регистрация</span>
+    </a>
+  </div>
+</header>
+
+<!-- ══════════════════════════════════════════════════════════════
+     SECTION 1 — Hero  (background: white)
+     ══════════════════════════════════════════════════════════════ -->
+<section class="hero">
+  <div class="hero-2col">
+
+    <!-- Left: text + CTAs -->
+    <div class="hero-text">
+      <div class="hero-badge">
+        <i class="ph-fill ph-lightning"></i>
+        <span data-i18n="landing.hero_badge">Система управления ремонтом</span>
+      </div>
+      <h1 class="hero-title">
+        <span data-i18n="landing.hero_title">Учёт заявок на ремонт и обслуживание</span><br>
+        <span class="accent" data-i18n="landing.hero_title_accent">оргтехники</span>
+      </h1>
+      <p class="hero-subtitle" data-i18n="landing.hero_subtitle">
+        Автоматизируйте обслуживание принтеров, копиров и компьютеров. Полная прозрачность от приёма заявки до закрытия.
+      </p>
+      <div class="hero-actions">
+        <a href="/pages/register.html" class="btn btn-primary btn-lg">
+          <i class="ph ph-rocket-launch"></i>
+          <span data-i18n="landing.cta_primary">Начать работу</span>
+        </a>
+        <a href="/pages/login.html" class="btn btn-secondary btn-lg">
+          <i class="ph ph-sign-in"></i>
+          <span data-i18n="landing.cta_secondary">Войти в систему</span>
+        </a>
+      </div>
+    </div>
+
+    <!-- Right: UI mockup -->
+    <div class="hero-mockup">
+      <div class="mockup-window">
+        <div class="mockup-topbar">
+          <div class="mockup-dot r"></div>
+          <div class="mockup-dot y"></div>
+          <div class="mockup-dot g"></div>
+          <div class="mockup-title-bar"><span>rems.local/dashboard</span></div>
+        </div>
+        <div class="mockup-body">
+          <div class="mockup-header">
+            <div class="mockup-logo">
+              <div class="mockup-logo-icon"><i class="ph ph-wrench"></i></div>
+              REMS
+            </div>
+            <span style="font-size:.6rem; color:var(--clr-text-muted);">Иванов И.И. · Техник</span>
+          </div>
+          <div class="mockup-stats">
+            <div class="mockup-stat">
+              <div class="mockup-stat-val" style="color:var(--clr-accent);">12</div>
+              <div class="mockup-stat-lbl">Открытых</div>
+            </div>
+            <div class="mockup-stat">
+              <div class="mockup-stat-val">5</div>
+              <div class="mockup-stat-lbl">В работе</div>
+            </div>
+            <div class="mockup-stat">
+              <div class="mockup-stat-val" style="color:var(--clr-navy);">48</div>
+              <div class="mockup-stat-lbl">Закрыто</div>
+            </div>
+          </div>
+          <div class="mockup-section-label">Активные заявки</div>
+          <div class="mockup-req">
+            <div class="mockup-req-icon teal"><i class="ph ph-printer"></i></div>
+            <div class="mockup-req-main">
+              <div class="mockup-req-title">HP LaserJet — не печатает</div>
+              <div class="mockup-req-sub">Бухгалтерия · #REQ-1042</div>
+            </div>
+            <span class="mockup-badge orange">В работе</span>
+          </div>
+          <div class="mockup-req">
+            <div class="mockup-req-icon navy"><i class="ph ph-desktop-tower"></i></div>
+            <div class="mockup-req-main">
+              <div class="mockup-req-title">ПК зависает при загрузке</div>
+              <div class="mockup-req-sub">ИТ-отдел · #REQ-1041</div>
+            </div>
+            <span class="mockup-badge blue">Новая</span>
+          </div>
+          <div class="mockup-req">
+            <div class="mockup-req-icon teal"><i class="ph ph-monitor"></i></div>
+            <div class="mockup-req-main">
+              <div class="mockup-req-title">Монитор — артефакты на экране</div>
+              <div class="mockup-req-sub">Отдел продаж · #REQ-1040</div>
+            </div>
+            <span class="mockup-badge green">Закрыта</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════════
+     SECTION 2 — Stats  (background: gray)
+     ══════════════════════════════════════════════════════════════ -->
+<div class="stats-row">
+  <div class="stat-item">
+    <div class="stat-item-val">50+</div>
+    <div class="stat-item-label" data-i18n="landing.stats_orgs">организаций</div>
+  </div>
+  <div class="stat-item">
+    <div class="stat-item-val">10 000+</div>
+    <div class="stat-item-label" data-i18n="landing.stats_requests">обработанных заявок</div>
+  </div>
+  <div class="stat-item">
+    <div class="stat-item-val">99.9%</div>
+    <div class="stat-item-label" data-i18n="landing.stats_uptime">доступность системы</div>
+  </div>
+  <div class="stat-item">
+    <div class="stat-item-val">&lt; 2 ч</div>
+    <div class="stat-item-label" data-i18n="landing.stats_time">среднее время реакции</div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════
+     SECTION 3 — Guide / two scenarios  (background: white)
+     ══════════════════════════════════════════════════════════════ -->
+<section style="padding: 5rem 1.5rem; background: var(--clr-bg);">
+  <div class="container">
+    <div style="text-align:center; margin-bottom:3rem;">
+      <p class="section-label" data-i18n="landing.guide_label">С чего начать</p>
+      <h2 class="section-title" data-i18n="landing.guide_section_title">Два сценария — одна система</h2>
+      <p class="section-subtitle" style="margin:0 auto; max-width:560px;" data-i18n="landing.guide_section_sub">
+        REMS одинаково хорошо подходит для работы внутри одной компании и для взаимодействия между двумя организациями.
+      </p>
+    </div>
+
+    <div class="guide-cards">
+
+      <!-- Card A: Internal org -->
+      <div class="guide-card">
+        <div class="guide-card-header">
+          <div class="guide-card-icon teal"><i class="ph ph-buildings"></i></div>
+          <div>
+            <div class="guide-card-tag" data-i18n="landing.guideA_tag">Внутри организации</div>
+            <div class="guide-card-title" data-i18n="landing.guideA_title">Учёт ремонтов силами своего IT-отдела</div>
+          </div>
+        </div>
+        <div class="guide-steps">
+          <div class="guide-step">
+            <div class="guide-step-left">
+              <div class="guide-step-num teal">1</div>
+              <div class="guide-step-line"></div>
+            </div>
+            <div class="guide-step-body">
+              <div class="guide-step-title" data-i18n="landing.guideA1_title">Руководитель создаёт организацию</div>
+              <p class="guide-step-desc" data-i18n="landing.guideA1_desc">Регистрируется с ролью «Руководитель» — система создаёт организацию и выдаёт уникальный ID.</p>
+            </div>
+          </div>
+          <div class="guide-step">
+            <div class="guide-step-left">
+              <div class="guide-step-num teal">2</div>
+              <div class="guide-step-line"></div>
+            </div>
+            <div class="guide-step-body">
+              <div class="guide-step-title" data-i18n="landing.guideA2_title">Сотрудники присоединяются по ID</div>
+              <p class="guide-step-desc" data-i18n="landing.guideA2_desc">Менеджеры, техники и рядовые сотрудники регистрируются, указав ID организации. Руководитель одобряет заявки.</p>
+            </div>
+          </div>
+          <div class="guide-step">
+            <div class="guide-step-left">
+              <div class="guide-step-num teal">3</div>
+              <div class="guide-step-line" style="display:none;"></div>
+            </div>
+            <div class="guide-step-body">
+              <div class="guide-step-title" data-i18n="landing.guideA3_title">Заявки — от подачи до закрытия</div>
+              <p class="guide-step-desc" data-i18n="landing.guideA3_desc">Сотрудник сообщает о неисправности → менеджер назначает техника → техник чинит и закрывает заявку.</p>
+            </div>
+          </div>
+        </div>
+        <a href="/pages/register.html" class="btn btn-primary btn-sm guide-card-btn">
+          <i class="ph ph-rocket-launch"></i>
+          <span data-i18n="landing.cta_primary">Начать работу</span>
+        </a>
+      </div>
+
+      <!-- Card B: Inter-org (client + contractor) -->
+      <div class="guide-card">
+        <div class="guide-card-header">
+          <div class="guide-card-icon navy"><i class="ph ph-handshake"></i></div>
+          <div>
+            <div class="guide-card-tag navy" data-i18n="landing.guideB_tag">Между организациями</div>
+            <div class="guide-card-title" data-i18n="landing.guideB_title">Заказчик и подрядчик в одной системе</div>
+          </div>
+        </div>
+        <div class="guide-steps">
+          <div class="guide-step">
+            <div class="guide-step-left">
+              <div class="guide-step-num navy">1</div>
+              <div class="guide-step-line"></div>
+            </div>
+            <div class="guide-step-body">
+              <div class="guide-step-title" data-i18n="landing.guideB1_title">Обе стороны регистрируют свои организации</div>
+              <p class="guide-step-desc" data-i18n="landing.guideB1_desc">Ваша компания (заказчик) и сервисный партнёр (подрядчик) создают отдельные организации в REMS.</p>
+            </div>
+          </div>
+          <div class="guide-step">
+            <div class="guide-step-left">
+              <div class="guide-step-num navy">2</div>
+              <div class="guide-step-line"></div>
+            </div>
+            <div class="guide-step-body">
+              <div class="guide-step-title" data-i18n="landing.guideB2_title">Заключите контракт на обслуживание</div>
+              <p class="guide-step-desc" data-i18n="landing.guideB2_desc">Подрядчик становится вашим сервисным партнёром — вы получаете единый канал для передачи заявок на ремонт. <span style="color:var(--clr-accent); font-weight:600;" data-i18n="landing.coming_soon">Скоро</span></p>
+            </div>
+          </div>
+          <div class="guide-step">
+            <div class="guide-step-left">
+              <div class="guide-step-num navy">3</div>
+              <div class="guide-step-line" style="display:none;"></div>
+            </div>
+            <div class="guide-step-body">
+              <div class="guide-step-title" data-i18n="landing.guideB3_title">Обменивайтесь заявками прозрачно</div>
+              <p class="guide-step-desc" data-i18n="landing.guideB3_desc">Ваши сотрудники создают заявки → техники подрядчика принимают их в работу → вы отслеживаете каждый этап в реальном времени.</p>
+            </div>
+          </div>
+        </div>
+        <a href="/pages/register.html" class="btn btn-navy btn-sm guide-card-btn">
+          <i class="ph ph-buildings"></i>
+          <span data-i18n="landing.guideB_btn">Зарегистрировать организацию</span>
+        </a>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════════
+     SECTION 4 — Features  (background: gray)
+     ══════════════════════════════════════════════════════════════ -->
+<section class="features" style="background: var(--clr-bg-subtle);">
+  <div style="text-align:center; margin-bottom:3rem;">
+    <p class="section-label" data-i18n="landing.features_label">Возможности</p>
+    <h2 class="section-title" data-i18n="landing.features_title">Всё что нужно для учёта оргтехники</h2>
+    <p class="section-subtitle" style="margin:0 auto; max-width:560px;" data-i18n="landing.features_subtitle">
+      Комплексное решение для управления заявками на ремонт и обслуживание оборудования
+    </p>
+  </div>
+  <div class="features-grid">
+
+    <div class="feature-card">
+      <div class="feature-icon"><i class="ph ph-clipboard-text"></i></div>
+      <h3 class="feature-title" data-i18n="landing.f1_title">Приём заявок</h3>
+      <p class="feature-desc" data-i18n="landing.f1_desc">
+        Централизованный учёт всех обращений по неисправностям принтеров, МФУ, компьютеров и другой оргтехники.
+      </p>
+    </div>
+
+    <div class="feature-card">
+      <div class="feature-icon"><i class="ph ph-chart-line-up"></i></div>
+      <h3 class="feature-title" data-i18n="landing.f2_title">Контроль статусов</h3>
+      <p class="feature-desc" data-i18n="landing.f2_desc">
+        Отслеживайте прогресс выполнения работ в режиме реального времени от приёма заявки до её закрытия.
+      </p>
+    </div>
+
+    <div class="feature-card">
+      <div class="feature-icon"><i class="ph ph-desktop-tower"></i></div>
+      <h3 class="feature-title" data-i18n="landing.f3_title">Управление оборудованием</h3>
+      <p class="feature-desc" data-i18n="landing.f3_desc">
+        Ведение реестра оборудования, история обслуживания, сроки гарантии и технические характеристики.
+      </p>
+    </div>
+
+    <div class="feature-card">
+      <div class="feature-icon navy"><i class="ph ph-users-three"></i></div>
+      <h3 class="feature-title" data-i18n="landing.f4_title">Команда специалистов</h3>
+      <p class="feature-desc" data-i18n="landing.f4_desc">
+        Разграничение ролей: руководитель, менеджер, техник, сотрудник. Назначение задач и контроль выполнения.
+      </p>
+    </div>
+
+    <div class="feature-card">
+      <div class="feature-icon navy"><i class="ph ph-bell-ringing"></i></div>
+      <h3 class="feature-title" data-i18n="landing.f5_title">Уведомления</h3>
+      <p class="feature-desc" data-i18n="landing.f5_desc">
+        Мгновенные уведомления об изменении статуса заявки, назначении техника и выполнении работ.
+      </p>
+    </div>
+
+    <div class="feature-card">
+      <div class="feature-icon navy"><i class="ph ph-chart-bar"></i></div>
+      <h3 class="feature-title" data-i18n="landing.f6_title">Отчётность</h3>
+      <p class="feature-desc" data-i18n="landing.f6_desc">
+        Статистика по заявкам, срокам выполнения, нагрузке на специалистов и состоянию оборудования.
+      </p>
+    </div>
+
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════════
+     SECTION 5 — Request statuses lifecycle  (background: white)
+     ══════════════════════════════════════════════════════════════ -->
+<section style="padding: 5rem 1.5rem; background: var(--clr-bg);">
+  <div class="container">
+    <div style="text-align:center; margin-bottom:3rem;">
+      <p class="section-label" data-i18n="landing.statuses_label">Статусы заявок</p>
+      <h2 class="section-title" data-i18n="landing.statuses_title">Жизненный цикл заявки</h2>
+      <p class="section-subtitle" style="margin:0 auto; max-width:540px;" data-i18n="landing.statuses_subtitle">
+        Каждая заявка проходит прозрачный путь от подачи до закрытия
+      </p>
+    </div>
+
+    <div class="status-flow">
+
+      <!-- 1. New -->
+      <div class="status-card status-new">
+        <div class="status-icon"><i class="ph ph-plus-circle"></i></div>
+        <div class="status-badge" data-i18n="landing.status_new_name">Новая</div>
+        <p class="status-desc" data-i18n="landing.status_new_desc">
+          Заявка создана сотрудником и ожидает принятия менеджером.
+        </p>
+      </div>
+
+      <div class="status-arrow"><i class="ph ph-caret-right"></i></div>
+
+      <!-- 2. Accepted -->
+      <div class="status-card status-accepted">
+        <div class="status-icon"><i class="ph ph-check-circle"></i></div>
+        <div class="status-badge" data-i18n="landing.status_accepted_name">Принята</div>
+        <p class="status-desc" data-i18n="landing.status_accepted_desc">
+          Менеджер принял заявку в работу и оценил приоритет.
+        </p>
+      </div>
+
+      <div class="status-arrow"><i class="ph ph-caret-right"></i></div>
+
+      <!-- 3. In progress -->
+      <div class="status-card status-progress">
+        <div class="status-icon"><i class="ph ph-wrench"></i></div>
+        <div class="status-badge" data-i18n="landing.status_inprogress_name">В работе</div>
+        <p class="status-desc" data-i18n="landing.status_inprogress_desc">
+          Техник назначен и ведёт ремонт или диагностику оборудования.
+        </p>
+      </div>
+
+      <div class="status-arrow"><i class="ph ph-caret-right"></i></div>
+
+      <!-- 4. Completed -->
+      <div class="status-card status-done">
+        <div class="status-icon"><i class="ph ph-seal-check"></i></div>
+        <div class="status-badge" data-i18n="landing.status_done_name">Завершена</div>
+        <p class="status-desc" data-i18n="landing.status_done_desc">
+          Техник зафиксировал результат. Ожидается подтверждение от заявителя.
+        </p>
+      </div>
+
+      <div class="status-arrow"><i class="ph ph-caret-right"></i></div>
+
+      <!-- 5. Closed -->
+      <div class="status-card status-closed">
+        <div class="status-icon"><i class="ph ph-lock-simple"></i></div>
+        <div class="status-badge" data-i18n="landing.status_closed_name">Закрыта</div>
+        <p class="status-desc" data-i18n="landing.status_closed_desc">
+          Заявка закрыта. Работы выполнены и подтверждены.
+        </p>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════════
+     SECTION 6 — For whom / Roles  (background: gray)
+     ══════════════════════════════════════════════════════════════ -->
+<section style="padding: 5rem 1.5rem; background: var(--clr-bg-subtle); border-top: 1px solid var(--clr-border);">
+  <div class="container">
+    <div style="text-align:center; margin-bottom:3rem;">
+      <p class="section-label" data-i18n="landing.roles_label">Для кого</p>
+      <h2 class="section-title" data-i18n="landing.roles_title">Каждому — своя роль</h2>
+      <p class="section-subtitle" style="margin:0 auto; max-width:540px;" data-i18n="landing.roles_subtitle">
+        REMS поддерживает разные уровни доступа в рамках одной организации
+      </p>
+    </div>
+    <div class="role-pill-grid">
+
+      <div class="role-pill">
+        <div class="role-pill-icon navy"><i class="ph ph-crown-simple"></i></div>
+        <div class="role-pill-title" data-i18n="landing.role_owner_title">Руководитель</div>
+        <p class="role-pill-desc" data-i18n="landing.role_owner_desc">
+          Создаёт организацию, добавляет сотрудников, контролирует все заявки и видит полную статистику.
+        </p>
+      </div>
+
+      <div class="role-pill">
+        <div class="role-pill-icon navy"><i class="ph ph-briefcase"></i></div>
+        <div class="role-pill-title" data-i18n="landing.role_manager_title">Менеджер</div>
+        <p class="role-pill-desc" data-i18n="landing.role_manager_desc">
+          Принимает и распределяет заявки между техниками, следит за сроками выполнения.
+        </p>
+      </div>
+
+      <div class="role-pill">
+        <div class="role-pill-icon green"><i class="ph ph-wrench"></i></div>
+        <div class="role-pill-title" data-i18n="landing.role_tech_title">Техник</div>
+        <p class="role-pill-desc" data-i18n="landing.role_tech_desc">
+          Получает задания, фиксирует выполненные работы, комментирует ход ремонта.
+        </p>
+      </div>
+
+      <div class="role-pill">
+        <div class="role-pill-icon green"><i class="ph ph-user"></i></div>
+        <div class="role-pill-title" data-i18n="landing.role_emp_title">Сотрудник</div>
+        <p class="role-pill-desc" data-i18n="landing.role_emp_desc">
+          Подаёт заявки на ремонт своего оборудования и отслеживает их статус.
+        </p>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════════
+     SECTION 7 — CTA  (background: navy)
+     ══════════════════════════════════════════════════════════════ -->
+<section style="padding:5rem 1.5rem; background:var(--clr-navy); text-align:center; position:relative; overflow:hidden;">
+  <div style="position:absolute;inset:0;background:radial-gradient(ellipse 70% 60% at 50% 120%, rgba(13,148,136,.2) 0%, transparent 60%);pointer-events:none;"></div>
+  <div class="container" style="position:relative;">
+    <h2 style="font-size:clamp(1.5rem,3vw,2.25rem); font-weight:800; color:#fff; margin-bottom:1rem;" data-i18n="landing.cta_title">
+      Начните автоматизацию сегодня
+    </h2>
+    <p style="font-size:var(--text-base); color:rgba(255,255,255,.6); margin-bottom:2rem; max-width:500px; margin-left:auto; margin-right:auto;" data-i18n="landing.cta_subtitle">
+      Присоединяйтесь к организациям, которые уже используют REMS для управления техническим обслуживанием.
+    </p>
+    <a href="/pages/register.html" class="btn btn-primary btn-xl">
+      <i class="ph ph-rocket-launch"></i>
+      <span data-i18n="landing.cta_btn">Зарегистрироваться бесплатно</span>
+    </a>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════════
+     Footer  (background: dark navy)
+     ══════════════════════════════════════════════════════════════ -->
+<footer style="background:#0f2744; color:rgba(255,255,255,.45); text-align:center; padding:1.75rem 1.5rem; font-size:var(--text-sm); border-top:1px solid rgba(255,255,255,.07);">
+  <span data-i18n="landing.footer">© 2026 REMS — Система учёта заявок на ремонт оргтехники</span>
+</footer>
+
+<div id="toast-container"></div>
+
+<script type="module">
+  /* ── Landing page i18n boot — async IIFE for max browser compat ── */
+  import { initI18n } from './js/i18n.js';
+  (async () => {
+    try { await initI18n(); } catch (e) { console.error('[landing] i18n failed:', e); }
+  })();
+</script>
+</body>
+</html>

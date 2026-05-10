@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Панель управления — REMS</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css">
+  <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/fill/style.css">
+  <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+
+<!-- ── Navbar ──────────────────────────────────────────────────── -->
+<header class="navbar">
+  <button class="btn btn-icon btn-ghost" id="sidebar-toggle" style="display:none;" aria-label="Меню">
+    <i class="ph ph-list" style="font-size:1.25rem;"></i>
+  </button>
+
+  <a href="/" class="navbar-brand">
+    <div class="navbar-logo"><i class="ph ph-wrench"></i></div>
+    <div>
+      <div class="navbar-title">REMS</div>
+      <div class="navbar-subtitle" data-i18n="app.tagline">Учёт заявок на ремонт оргтехники</div>
+    </div>
+  </a>
+
+  <div class="navbar-spacer"></div>
+
+  <div class="navbar-actions">
+    <!-- Language switcher -->
+    <div class="lang-switcher">
+      <button class="lang-btn active" data-lang="ru">RU</button>
+      <button class="lang-btn"        data-lang="en">EN</button>
+    </div>
+
+    <!-- Notifications button -->
+    <button class="btn btn-icon btn-ghost" id="btn-notifications" style="position:relative;" aria-label="Уведомления">
+      <i class="ph ph-bell" style="font-size:1.25rem;"></i>
+      <span class="badge-dot" id="notif-dot" style="position:absolute; top:.4rem; right:.4rem; display:none;"></span>
+    </button>
+
+    <!-- User menu -->
+    <div style="position:relative;">
+      <button class="avatar avatar-sm" id="btn-user-menu" style="cursor:pointer; border:none; font-family:inherit;">
+        <span id="nav-avatar-initials">?</span>
+        <img id="nav-avatar-img" src="" alt="" style="display:none;">
+      </button>
+      <div id="user-dropdown" class="hidden" style="position:absolute; top:calc(100% + .5rem); right:0; background:var(--clr-surface); border:1px solid var(--clr-border); border-radius:var(--radius-lg); box-shadow:var(--shadow-lg); min-width:180px; z-index:60; overflow:hidden;">
+        <div style="padding:.75rem 1rem; border-bottom:1px solid var(--clr-border);">
+          <div style="font-size:var(--text-sm); font-weight:600;" id="dd-name">—</div>
+          <div style="font-size:var(--text-xs); color:var(--clr-text-muted);" id="dd-email">—</div>
+        </div>
+        <button class="nav-item" id="dd-profile" style="border-radius:0; border:none;">
+          <i class="ph ph-user"></i>
+          <span data-i18n="nav.profile">Профиль</span>
+        </button>
+        <button class="nav-item" id="dd-settings" style="border-radius:0; border:none;">
+          <i class="ph ph-gear"></i>
+          <span data-i18n="nav.settings">Настройки</span>
+        </button>
+        <div style="border-top:1px solid var(--clr-border); padding:.25rem;">
+          <button class="nav-item" id="btn-logout" style="border-radius:var(--radius-sm); color:var(--clr-error);">
+            <i class="ph ph-sign-out" style="color:var(--clr-error);"></i>
+            <span data-i18n="nav.logout">Выйти</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- ── App layout ───────────────────────────────────────────────── -->
+<div class="app-layout">
+
+  <!-- ── Sidebar ──────────────────────────────────────────────── -->
+  <aside class="sidebar" id="sidebar">
+    <nav>
+      <div class="nav-section">
+        <p class="nav-section-label" data-i18n="app.name">REMS</p>
+        <button class="nav-item active" data-tab="overview">
+          <i class="ph ph-squares-four"></i>
+          <span data-i18n="nav.dashboard">Обзор</span>
+        </button>
+        <button class="nav-item" data-tab="requests">
+          <i class="ph ph-clipboard-text"></i>
+          <span data-i18n="nav.requests">Заявки</span>
+        </button>
+        <button class="nav-item" data-tab="equipment">
+          <i class="ph ph-desktop-tower"></i>
+          <span data-i18n="nav.equipment">Оборудование</span>
+        </button>
+        <button class="nav-item" data-tab="notifications" id="nav-notifications">
+          <i class="ph ph-bell"></i>
+          <span data-i18n="nav.notifications">Уведомления</span>
+          <span class="nav-badge hidden" id="notif-badge">0</span>
+        </button>
+      </div>
+
+      <div class="nav-section" id="org-nav-section" style="display:none;">
+        <p class="nav-section-label">Организация</p>
+        <button class="nav-item" data-tab="members">
+          <i class="ph ph-users"></i>
+          <span data-i18n="nav.members">Сотрудники</span>
+        </button>
+        <button class="nav-item" data-tab="org">
+          <i class="ph ph-buildings"></i>
+          <span>Профиль орг.</span>
+        </button>
+      </div>
+
+      <div class="nav-section" style="margin-top:auto;">
+        <button class="nav-item" data-tab="profile">
+          <i class="ph ph-user-circle"></i>
+          <span data-i18n="nav.profile">Профиль</span>
+        </button>
+      </div>
+    </nav>
+  </aside>
+
+  <!-- ── Main content ─────────────────────────────────────────── -->
+  <main class="main-content" id="main-content">
+
+    <!-- ══ TAB: Overview ═══════════════════════════════════════ -->
+    <div class="tab-panel active" id="tab-overview">
+      <div class="page-header">
+        <h1 class="page-title" id="welcome-title" data-i18n="dashboard.welcome">Добро пожаловать</h1>
+        <p class="page-desc" data-i18n="app.tagline">Учёт заявок на ремонт оргтехники</p>
+      </div>
+
+      <!-- Stats row -->
+      <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:1rem; margin-bottom:2rem;">
+        <div class="stat-card">
+          <div class="stat-icon stat-icon-yellow"><i class="ph ph-hourglass"></i></div>
+          <div>
+            <div class="stat-value" id="stat-pending">—</div>
+            <div class="stat-label" data-i18n="dashboard.requests_pending">В ожидании</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon stat-icon-blue"><i class="ph ph-clipboard-text"></i></div>
+          <div>
+            <div class="stat-value" id="stat-open">—</div>
+            <div class="stat-label" data-i18n="dashboard.requests_open">Открытых заявок</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon stat-icon-green"><i class="ph ph-check-circle"></i></div>
+          <div>
+            <div class="stat-value" id="stat-done">—</div>
+            <div class="stat-label" data-i18n="dashboard.requests_done">Выполнено</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon stat-icon-red"><i class="ph ph-desktop-tower"></i></div>
+          <div>
+            <div class="stat-value" id="stat-equipment">—</div>
+            <div class="stat-label" data-i18n="dashboard.equipment_count">Оборудование</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Membership notice (if no org) -->
+      <div class="alert alert-info hidden" id="no-org-notice" style="margin-bottom:1.5rem;">
+        <i class="ph ph-info"></i>
+        <div>
+          <strong>Вы не состоите в организации.</strong>
+          <span> Дождитесь приглашения от руководителя или укажите ID организации в профиле.</span>
+        </div>
+      </div>
+
+      <!-- Quick actions -->
+      <div class="card" style="margin-bottom:1.5rem;">
+        <div class="card-header" style="margin-bottom:0; padding-bottom:0; border:none;">
+          <h2 class="card-title">Быстрые действия</h2>
+        </div>
+        <div style="display:flex; flex-wrap:wrap; gap:.75rem; margin-top:1rem;">
+          <button class="btn btn-primary" id="btn-new-request">
+            <i class="ph ph-plus"></i>
+            Новая заявка
+          </button>
+          <button class="btn btn-secondary" data-tab-trigger="notifications">
+            <i class="ph ph-bell"></i>
+            <span data-i18n="nav.notifications">Уведомления</span>
+          </button>
+          <button class="btn btn-secondary" data-tab-trigger="profile">
+            <i class="ph ph-user"></i>
+            <span data-i18n="nav.profile">Профиль</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Recent notifications -->
+      <div class="card">
+        <div class="card-header">
+          <h2 class="card-title" data-i18n="notifications.title">Уведомления</h2>
+          <button class="btn btn-ghost btn-sm" data-tab-trigger="notifications">
+            <span>Все</span>
+            <i class="ph ph-arrow-right"></i>
+          </button>
+        </div>
+        <div id="overview-notifs">
+          <div class="empty-state" style="padding: 2rem;">
+            <i class="ph ph-bell-slash"></i>
+            <p class="empty-state-text" data-i18n="notifications.empty">Нет новых уведомлений</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ TAB: Requests ════════════════════════════════════════ -->
+    <div class="tab-panel" id="tab-requests">
+      <div class="page-header">
+        <h1 class="page-title" data-i18n="nav.requests">Заявки</h1>
+        <p class="page-desc">Управление заявками на ремонт и обслуживание</p>
+      </div>
+      <div class="empty-state" style="margin-top:4rem;">
+        <i class="ph ph-clipboard-text"></i>
+        <p class="empty-state-title">Раздел в разработке</p>
+        <p class="empty-state-text">Управление заявками будет доступно в следующей версии.</p>
+      </div>
+    </div>
+
+    <!-- ══ TAB: Equipment ══════════════════════════════════════ -->
+    <div class="tab-panel" id="tab-equipment">
+      <div class="page-header">
+        <h1 class="page-title" data-i18n="nav.equipment">Оборудование</h1>
+        <p class="page-desc">Реестр оргтехники организации</p>
+      </div>
+      <div class="empty-state" style="margin-top:4rem;">
+        <i class="ph ph-desktop-tower"></i>
+        <p class="empty-state-title">Раздел в разработке</p>
+        <p class="empty-state-text">Учёт оборудования будет доступен в следующей версии.</p>
+      </div>
+    </div>
+
+    <!-- ══ TAB: Notifications ══════════════════════════════════ -->
+    <div class="tab-panel" id="tab-notifications">
+      <div class="page-header" style="display:flex; align-items:center; justify-content:space-between;">
+        <div>
+          <h1 class="page-title" data-i18n="notifications.title">Уведомления</h1>
+          <p class="page-desc">Все системные уведомления</p>
+        </div>
+        <button class="btn btn-secondary btn-sm" id="btn-mark-all-read">
+          <i class="ph ph-checks"></i>
+          <span data-i18n="notifications.mark_all">Прочитать все</span>
+        </button>
+      </div>
+
+      <div class="card" style="padding:0; overflow:hidden;">
+        <div id="notif-list">
+          <div class="empty-state">
+            <i class="ph ph-bell-slash"></i>
+            <p class="empty-state-title" data-i18n="notifications.empty">Нет уведомлений</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ TAB: Members ════════════════════════════════════════ -->
+    <div class="tab-panel" id="tab-members">
+      <div class="page-header" style="display:flex; align-items:center; justify-content:space-between;">
+        <div>
+          <h1 class="page-title" data-i18n="members.title">Сотрудники</h1>
+          <p class="page-desc">Управление участниками организации</p>
+        </div>
+        <button class="btn btn-primary btn-sm" id="btn-invite">
+          <i class="ph ph-user-plus"></i>
+          <span data-i18n="members.invite">Пригласить</span>
+        </button>
+      </div>
+
+      <!-- Pending members -->
+      <div class="card" id="pending-section" style="margin-bottom:1.5rem; display:none;">
+        <div class="card-header">
+          <h2 class="card-title" data-i18n="members.pending">Ожидают одобрения</h2>
+        </div>
+        <div id="pending-list"></div>
+      </div>
+
+      <div class="card">
+        <div class="empty-state">
+          <i class="ph ph-users"></i>
+          <p class="empty-state-title" data-i18n="members.no_pending">Нет ожидающих заявок</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ TAB: Org ════════════════════════════════════════════ -->
+    <div class="tab-panel" id="tab-org">
+      <div class="page-header">
+        <h1 class="page-title">Профиль организации</h1>
+      </div>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:1.5rem;">
+
+        <div class="card">
+          <div class="card-header">
+            <h2 class="card-title">Информация</h2>
+            <button class="btn btn-secondary btn-sm" id="btn-edit-org">
+              <i class="ph ph-pencil"></i>
+              <span data-i18n="common.edit">Редактировать</span>
+            </button>
+          </div>
+          <div>
+            <div class="profile-row">
+              <span class="profile-row-label">Название</span>
+              <span class="profile-row-value" id="org-name-val">—</span>
+            </div>
+            <div class="profile-row">
+              <span class="profile-row-label">ID организации</span>
+              <span class="profile-row-value" id="org-id-val">—</span>
+            </div>
+            <div class="profile-row">
+              <span class="profile-row-label">Тип</span>
+              <span class="profile-row-value" id="org-type-val">—</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Org logo -->
+        <div class="card" style="display:flex; flex-direction:column; align-items:center; gap:1rem;">
+          <label class="avatar-upload">
+            <div class="avatar avatar-xl" id="org-logo-avatar">
+              <i class="ph ph-buildings" style="font-size:2rem;"></i>
+            </div>
+            <div class="avatar-upload-overlay"><i class="ph ph-camera"></i></div>
+            <input type="file" id="org-logo-input" accept="image/*" style="display:none;">
+          </label>
+          <div style="text-align:center;">
+            <p style="font-size:var(--text-sm); font-weight:600;" id="org-name-display">—</p>
+            <p style="font-size:var(--text-xs); color:var(--clr-text-muted);">Логотип организации</p>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ══ TAB: Profile ════════════════════════════════════════ -->
+    <div class="tab-panel" id="tab-profile">
+      <div class="page-header">
+        <h1 class="page-title" data-i18n="profile.title">Профиль</h1>
+        <p class="page-desc">Управление личными данными</p>
+      </div>
+
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:1.5rem;">
+
+        <!-- Avatar card -->
+        <div class="card" style="display:flex; flex-direction:column; align-items:center; gap:1rem; grid-row:span 2;">
+          <label class="avatar-upload">
+            <div class="avatar avatar-xl" id="profile-avatar">
+              <span id="profile-initials">?</span>
+              <img id="profile-avatar-img" src="" alt="" style="display:none;">
+            </div>
+            <div class="avatar-upload-overlay"><i class="ph ph-camera"></i></div>
+            <input type="file" id="avatar-input" accept="image/*" style="display:none;">
+          </label>
+          <div style="text-align:center;">
+            <p style="font-size:var(--text-lg); font-weight:600;" id="profile-fullname">—</p>
+            <p style="font-size:var(--text-sm); color:var(--clr-text-muted);" id="profile-role-badge">—</p>
+          </div>
+          <button class="btn btn-secondary btn-sm w-full" id="btn-change-avatar" style="max-width:200px;" data-i18n="profile.change_avatar">
+            Изменить фото
+          </button>
+        </div>
+
+        <!-- Info card -->
+        <div class="card">
+          <div class="card-header">
+            <h2 class="card-title" data-i18n="profile.title">Информация</h2>
+          </div>
+          <div>
+            <div class="profile-row">
+              <span class="profile-row-label" data-i18n="profile.name">Полное имя</span>
+              <span class="profile-row-value" id="info-fullname">—</span>
+            </div>
+            <div class="profile-row">
+              <span class="profile-row-label" data-i18n="profile.email">Эл. почта</span>
+              <span class="profile-row-value" id="info-email">—</span>
+            </div>
+            <div class="profile-row">
+              <span class="profile-row-label" data-i18n="profile.phone">Телефон</span>
+              <span class="profile-row-value" id="info-phone">—</span>
+            </div>
+            <div class="profile-row">
+              <span class="profile-row-label" data-i18n="profile.department">Отдел</span>
+              <span class="profile-row-value" id="info-dept">—</span>
+            </div>
+            <div class="profile-row">
+              <span class="profile-row-label" data-i18n="profile.role">Роль</span>
+              <span class="profile-row-value" id="info-role">—</span>
+            </div>
+            <div class="profile-row">
+              <span class="profile-row-label" data-i18n="profile.language">Язык</span>
+              <span class="profile-row-value" id="info-lang">—</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Password card -->
+        <div class="card">
+          <div class="card-header">
+            <h2 class="card-title" data-i18n="profile.change_password">Изменить пароль</h2>
+          </div>
+          <div style="display:flex; flex-direction:column; gap:.75rem;">
+            <div class="form-group">
+              <label class="form-label" for="old-password">Текущий пароль</label>
+              <div class="input-wrap">
+                <i class="ph ph-lock-simple input-icon"></i>
+                <input id="old-password" type="password" class="form-input" placeholder="Текущий пароль">
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="new-password">Новый пароль</label>
+              <div class="input-wrap">
+                <i class="ph ph-lock-key input-icon"></i>
+                <input id="new-password" type="password" class="form-input" placeholder="Новый пароль">
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="new-password2">Подтверждение</label>
+              <div class="input-wrap">
+                <i class="ph ph-lock-key input-icon"></i>
+                <input id="new-password2" type="password" class="form-input" placeholder="Повторите новый пароль">
+              </div>
+            </div>
+            <div class="alert alert-error hidden" id="err-chpw"><i class="ph ph-warning-circle"></i><span id="err-chpw-text"></span></div>
+            <button class="btn btn-primary" id="btn-change-password" data-i18n="profile.change_password">Изменить пароль</button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- ── Invite member modal ──────────────────────────────────────── -->
+<div class="modal-backdrop" id="invite-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 class="modal-title" data-i18n="members.invite">Пригласить сотрудника</h3>
+      <button class="modal-close" data-close-modal="invite-modal"><i class="ph ph-x"></i></button>
+    </div>
+    <div class="modal-body">
+      <div style="display:flex; flex-direction:column; gap:1rem;">
+        <div class="form-group">
+          <label class="form-label" for="invite-contact">
+            Email, телефон или ID пользователя <span class="req">*</span>
+          </label>
+          <div class="input-wrap">
+            <i class="ph ph-at input-icon"></i>
+            <input id="invite-contact" type="text" class="form-input" placeholder="email@example.com">
+          </div>
+          <div class="form-error" id="err-invite-contact"><i class="ph ph-warning-circle"></i><span></span></div>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="invite-role">Роль <span class="req">*</span></label>
+          <select id="invite-role" class="form-select">
+            <option value="" disabled selected>Выберите роль</option>
+            <option value="manager"   data-i18n-opt="roles.manager">Менеджер</option>
+            <option value="technician" data-i18n-opt="roles.technician">Техник</option>
+            <option value="employee"  data-i18n-opt="roles.employee">Сотрудник</option>
+          </select>
+          <div class="form-error" id="err-invite-role"><i class="ph ph-warning-circle"></i><span></span></div>
+        </div>
+        <div class="alert alert-error hidden" id="err-invite"><i class="ph ph-warning-circle"></i><span id="err-invite-text"></span></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" data-close-modal="invite-modal" data-i18n="common.cancel">Отмена</button>
+      <button class="btn btn-primary" id="btn-invite-confirm">
+        <i class="ph ph-paper-plane-tilt"></i>
+        <span>Отправить</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Edit org name modal ──────────────────────────────────────── -->
+<div class="modal-backdrop" id="edit-org-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 class="modal-title">Изменить название организации</h3>
+      <button class="modal-close" data-close-modal="edit-org-modal"><i class="ph ph-x"></i></button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label" for="edit-org-name">Название <span class="req">*</span></label>
+        <input id="edit-org-name" type="text" class="form-input" placeholder="Название организации">
+        <div class="form-error" id="err-edit-org"><i class="ph ph-warning-circle"></i><span></span></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" data-close-modal="edit-org-modal" data-i18n="common.cancel">Отмена</button>
+      <button class="btn btn-primary" id="btn-save-org-name" data-i18n="common.save">Сохранить</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast-container"></div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script type="module" src="../js/pages/dashboard.js"></script>
+</body>
+</html>

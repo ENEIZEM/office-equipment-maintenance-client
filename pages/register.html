@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Регистрация — REMS</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css">
+  <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/fill/style.css">
+  <link rel="stylesheet" href="../style.css">
+</head>
+<body class="auth-page">
+
+<!-- ── Header ────────────────────────────────────────────────── -->
+<header class="auth-header">
+  <a href="/" class="auth-brand">
+    <div class="auth-brand-logo"><i class="ph ph-wrench"></i></div>
+    <span class="auth-brand-name">REMS</span>
+  </a>
+  <div class="lang-switcher">
+    <button type="button" class="lang-btn active" data-lang="ru">RU</button>
+    <button type="button" class="lang-btn"        data-lang="en">EN</button>
+  </div>
+</header>
+
+<!-- ── Main ──────────────────────────────────────────────────── -->
+<main class="auth-container" style="align-items:flex-start; padding-top: 2.5rem; padding-bottom: 2.5rem;">
+<div class="auth-card auth-card-wide">
+
+  <!-- ── Step progress track ── -->
+  <div class="steps-track" id="steps-track">
+    <div class="step-item">
+      <div class="step-circle active" id="step-circle-1">1</div>
+      <div class="step-line" id="step-line-1"></div>
+    </div>
+    <div class="step-item">
+      <div class="step-circle" id="step-circle-2">2</div>
+      <div class="step-line" id="step-line-2"></div>
+    </div>
+    <div class="step-item">
+      <div class="step-circle" id="step-circle-3">3</div>
+      <div class="step-line" id="step-line-3"></div>
+    </div>
+    <div class="step-item" style="flex:0;">
+      <div class="step-circle" id="step-circle-4">4</div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════
+       STEP 1 — Contact & Role
+       ════════════════════════════════════════════ -->
+  <div id="step-1">
+    <h2 class="auth-title" data-i18n="auth.register.step1_title">Контакт и роль</h2>
+    <p class="auth-subtitle" data-i18n="auth.register.subtitle">Создайте учётную запись</p>
+
+    <div style="display:flex; flex-direction:column; gap:1.25rem;">
+
+      <!-- Contact -->
+      <div class="form-group">
+        <label class="form-label" for="reg-contact">
+          <span data-i18n="auth.register.contact_label">Эл. почта или телефон</span>
+          <span class="req">*</span>
+        </label>
+        <div class="input-wrap">
+          <i class="ph ph-at input-icon"></i>
+          <input id="reg-contact" type="text" class="form-input" autocomplete="username"
+            data-i18n-ph="auth.register.contact_ph"
+            placeholder="example@mail.ru или +7 999 000 00 00">
+        </div>
+        <p class="form-hint" data-i18n="auth.register.contact_hint">На этот адрес/номер придёт код подтверждения</p>
+        <div class="form-error" id="err-contact"><i class="ph ph-warning-circle"></i><span></span></div>
+      </div>
+
+      <!-- Role selector -->
+      <div class="form-group">
+        <p class="form-label">
+          <span data-i18n="auth.register.role_label">Ваша роль в системе</span>
+          <span class="req">*</span>
+        </p>
+        <div class="role-grid" id="role-grid" role="radiogroup">
+
+          <label class="role-card" data-role="owner">
+            <input type="radio" name="role" value="owner" class="sr-only">
+            <div class="role-card-icon"><i class="ph ph-crown-simple"></i></div>
+            <div class="role-card-label" data-i18n="auth.register.role_owner_label">Руководитель</div>
+            <div class="role-card-desc"  data-i18n="auth.register.role_owner_desc">Создаёт организацию, управляет персоналом</div>
+          </label>
+
+          <label class="role-card" data-role="manager">
+            <input type="radio" name="role" value="manager" class="sr-only">
+            <div class="role-card-icon"><i class="ph ph-briefcase"></i></div>
+            <div class="role-card-label" data-i18n="auth.register.role_manager_label">Менеджер</div>
+            <div class="role-card-desc"  data-i18n="auth.register.role_manager_desc">Координирует заявки и управляет работой</div>
+          </label>
+
+          <label class="role-card" data-role="technician">
+            <input type="radio" name="role" value="technician" class="sr-only">
+            <div class="role-card-icon"><i class="ph ph-wrench"></i></div>
+            <div class="role-card-label" data-i18n="auth.register.role_tech_label">Техник</div>
+            <div class="role-card-desc"  data-i18n="auth.register.role_tech_desc">Выполняет ремонт и техническое обслуживание</div>
+          </label>
+
+          <label class="role-card" data-role="employee">
+            <input type="radio" name="role" value="employee" class="sr-only">
+            <div class="role-card-icon"><i class="ph ph-user"></i></div>
+            <div class="role-card-label" data-i18n="auth.register.role_employee_label">Сотрудник</div>
+            <div class="role-card-desc"  data-i18n="auth.register.role_employee_desc">Подаёт заявки на ремонт оборудования</div>
+          </label>
+
+        </div>
+        <div class="form-error" id="err-role"><i class="ph ph-warning-circle"></i><span></span></div>
+      </div>
+
+      <!-- Org name (owner only) -->
+      <div class="form-group" id="org-name-group" style="display:none;">
+        <label class="form-label" for="org-name">
+          <span data-i18n="auth.register.org_name_label">Название организации</span>
+          <span class="req">*</span>
+        </label>
+        <div class="input-wrap">
+          <i class="ph ph-buildings input-icon"></i>
+          <input id="org-name" type="text" class="form-input"
+            data-i18n-ph="auth.register.org_name_ph"
+            placeholder="ООО «Ромашка»">
+        </div>
+        <p class="form-hint" data-i18n="auth.register.org_name_hint">Вы создаёте новую организацию</p>
+        <div class="form-error" id="err-org-name"><i class="ph ph-warning-circle"></i><span></span></div>
+      </div>
+
+      <!-- Org ID (non-owner) -->
+      <div class="form-group" id="org-id-group" style="display:none;">
+        <label class="form-label" for="org-id">
+          <span data-i18n="auth.register.org_id_label">ID организации</span>
+          <span class="req">*</span>
+        </label>
+        <div class="input-wrap">
+          <i class="ph ph-hash input-icon"></i>
+          <input id="org-id" type="number" class="form-input" min="1"
+            data-i18n-ph="auth.register.org_id_ph"
+            placeholder="Например: 42">
+        </div>
+        <p class="form-hint" data-i18n="auth.register.org_id_hint">После отправки заявки руководитель организации одобрит её, отклонит или изменит роль.</p>
+        <div class="form-error" id="err-org-id"><i class="ph ph-warning-circle"></i><span></span></div>
+      </div>
+
+      <div class="alert alert-error" id="err-step1"><i class="ph ph-warning-circle"></i><span id="err-step1-text"></span></div>
+
+      <button type="button" class="btn btn-primary w-full btn-lg" id="btn-step1">
+        <span data-i18n="common.next">Далее</span>
+        <i class="ph ph-arrow-right"></i>
+      </button>
+    </div>
+
+    <p style="text-align:center; font-size:var(--text-sm); color:var(--clr-text-secondary); margin-top:1.5rem;">
+      <span data-i18n="auth.register.already">Уже есть учётная запись?</span>
+      <a href="/pages/login.html" style="font-weight:600; margin-left:.25rem;" data-i18n="auth.register.login_link">Войти</a>
+    </p>
+  </div>
+
+  <!-- ════════════════════════════════════════════
+       STEP 2 — Verification code
+       ════════════════════════════════════════════ -->
+  <div id="step-2" class="hidden">
+    <h2 class="auth-title" data-i18n="auth.register.step2_title">Код подтверждения</h2>
+    <p class="auth-subtitle">
+      <span data-i18n="auth.register.code_sent">Код отправлен на</span>
+      <strong id="contact-display" style="color:var(--clr-text-primary);"></strong>
+    </p>
+
+    <div style="display:flex; flex-direction:column; gap:1.25rem;">
+
+      <div>
+        <p class="form-label" style="justify-content:center; margin-bottom:.75rem;" data-i18n="auth.register.code_label">Код подтверждения</p>
+        <div class="code-row" id="code-inputs">
+          <input class="code-input" type="text" inputmode="numeric" maxlength="1" autocomplete="off">
+          <input class="code-input" type="text" inputmode="numeric" maxlength="1" autocomplete="off">
+          <input class="code-input" type="text" inputmode="numeric" maxlength="1" autocomplete="off">
+          <input class="code-input" type="text" inputmode="numeric" maxlength="1" autocomplete="off">
+          <input class="code-input" type="text" inputmode="numeric" maxlength="1" autocomplete="off">
+          <input class="code-input" type="text" inputmode="numeric" maxlength="1" autocomplete="off">
+        </div>
+        <p class="form-hint" style="text-align:center; margin-top:.5rem;" data-i18n="auth.register.code_hint">Введите 6-значный код из письма / SMS</p>
+      </div>
+
+      <div class="alert alert-error" id="err-step2"><i class="ph ph-warning-circle"></i><span id="err-step2-text"></span></div>
+
+      <button type="button" class="btn btn-primary w-full btn-lg" id="btn-step2" disabled>
+        <i class="ph ph-check"></i>
+        <span data-i18n="auth.register.code_btn">Подтвердить</span>
+      </button>
+
+      <div style="text-align:center; font-size:var(--text-sm); color:var(--clr-text-secondary);">
+        <span id="resend-wait" class="hidden">
+          <span data-i18n="auth.register.code_resend_wait">Повторно через</span>
+          <strong id="resend-countdown">60</strong>с
+        </span>
+        <button type="button" id="btn-resend" class="btn btn-ghost btn-sm" style="display:none;">
+          <i class="ph ph-arrow-clockwise"></i>
+          <span data-i18n="auth.register.code_resend">Отправить повторно</span>
+        </button>
+      </div>
+
+      <button type="button" class="btn btn-ghost w-full" id="btn-back-step1">
+        <i class="ph ph-arrow-left"></i>
+        <span data-i18n="common.back">Назад</span>
+      </button>
+
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════
+       STEP 3 — Personal info
+       ════════════════════════════════════════════ -->
+  <div id="step-3" class="hidden">
+    <h2 class="auth-title" data-i18n="auth.register.step3_title">Личные данные</h2>
+    <p class="auth-subtitle" data-i18n="auth.register.subtitle">Создайте учётную запись</p>
+
+    <div style="display:flex; flex-direction:column; gap:1rem;">
+
+      <!-- Full name -->
+      <div class="form-group">
+        <label class="form-label" for="reg-name">
+          <span data-i18n="auth.register.name_label">Полное имя</span>
+          <span class="req">*</span>
+        </label>
+        <div class="input-wrap">
+          <i class="ph ph-user input-icon"></i>
+          <input id="reg-name" type="text" class="form-input" autocomplete="name"
+            data-i18n-ph="auth.register.name_ph"
+            placeholder="Иванов Иван Иванович">
+        </div>
+        <div class="form-error" id="err-name"><i class="ph ph-warning-circle"></i><span></span></div>
+      </div>
+
+      <!-- Department -->
+      <div class="form-group">
+        <label class="form-label" for="reg-dept">
+          <span data-i18n="auth.register.dept_label">Отдел / должность</span>
+          <span style="font-size:var(--text-xs); color:var(--clr-text-muted); font-weight:400;" data-i18n="auth.register.dept_hint">Необязательно</span>
+        </label>
+        <div class="input-wrap">
+          <i class="ph ph-building input-icon"></i>
+          <input id="reg-dept" type="text" class="form-input" autocomplete="organization-title"
+            data-i18n-ph="auth.register.dept_ph"
+            placeholder="Отдел ИТ">
+        </div>
+      </div>
+
+      <!-- Password -->
+      <div class="form-group">
+        <label class="form-label" for="reg-password">
+          <span data-i18n="auth.register.pass_label">Пароль</span>
+          <span class="req">*</span>
+        </label>
+        <div class="input-wrap">
+          <i class="ph ph-lock-simple input-icon"></i>
+          <input id="reg-password" type="password" class="form-input" autocomplete="new-password"
+            data-i18n-ph="auth.register.pass_ph"
+            placeholder="Минимум 8 символов">
+          <button type="button" class="input-action" id="toggle-reg-pw" tabindex="-1">
+            <i class="ph ph-eye" id="reg-pw-icon"></i>
+          </button>
+        </div>
+        <p class="form-hint" data-i18n="auth.register.pass_hint">Заглавная буква, строчная буква, цифра</p>
+        <div class="form-error" id="err-reg-password"><i class="ph ph-warning-circle"></i><span></span></div>
+
+        <!-- Password strength bar -->
+        <div id="pw-strength" style="margin-top:.5rem; display:none;">
+          <div style="display:flex; gap:.25rem; margin-bottom:.25rem;">
+            <div class="pw-bar" style="flex:1; height:3px; border-radius:2px; background:var(--clr-border);"></div>
+            <div class="pw-bar" style="flex:1; height:3px; border-radius:2px; background:var(--clr-border);"></div>
+            <div class="pw-bar" style="flex:1; height:3px; border-radius:2px; background:var(--clr-border);"></div>
+            <div class="pw-bar" style="flex:1; height:3px; border-radius:2px; background:var(--clr-border);"></div>
+          </div>
+          <p id="pw-strength-label" style="font-size:var(--text-xs); color:var(--clr-text-muted);"></p>
+        </div>
+      </div>
+
+      <!-- Password confirm -->
+      <div class="form-group">
+        <label class="form-label" for="reg-password2">
+          <span data-i18n="auth.register.pass2_label">Повторите пароль</span>
+          <span class="req">*</span>
+        </label>
+        <div class="input-wrap">
+          <i class="ph ph-lock-key input-icon"></i>
+          <input id="reg-password2" type="password" class="form-input" autocomplete="new-password"
+            data-i18n-ph="auth.register.pass2_ph"
+            placeholder="Повторите пароль">
+        </div>
+        <div class="form-error" id="err-reg-password2"><i class="ph ph-warning-circle"></i><span></span></div>
+      </div>
+
+      <!-- PIN (optional) -->
+      <div class="form-group">
+        <p class="form-label">
+          <span data-i18n="auth.register.pin_label">PIN-код (6 цифр)</span>
+          <span style="font-size:var(--text-xs); color:var(--clr-text-muted); font-weight:400;" data-i18n="auth.register.pin_optional">Необязательно</span>
+        </p>
+        <p class="form-hint" style="margin-bottom:.5rem;" data-i18n="auth.register.pin_hint">Для быстрого входа с этого устройства</p>
+        <div class="pin-row" id="reg-pin-inputs">
+          <input class="pin-input" type="text" inputmode="numeric" maxlength="1" autocomplete="off">
+          <input class="pin-input" type="text" inputmode="numeric" maxlength="1" autocomplete="off">
+          <input class="pin-input" type="text" inputmode="numeric" maxlength="1" autocomplete="off">
+          <input class="pin-input" type="text" inputmode="numeric" maxlength="1" autocomplete="off">
+          <input class="pin-input" type="text" inputmode="numeric" maxlength="1" autocomplete="off">
+          <input class="pin-input" type="text" inputmode="numeric" maxlength="1" autocomplete="off">
+        </div>
+        <div class="form-error" id="err-reg-pin"><i class="ph ph-warning-circle"></i><span></span></div>
+      </div>
+
+      <div class="alert alert-error" id="err-step3"><i class="ph ph-warning-circle"></i><span id="err-step3-text"></span></div>
+
+      <button type="button" class="btn btn-primary w-full btn-lg" id="btn-step3">
+        <i class="ph ph-check-circle"></i>
+        <span data-i18n="auth.register.finish_btn">Завершить регистрацию</span>
+      </button>
+
+      <button type="button" class="btn btn-ghost w-full" id="btn-back-step2">
+        <i class="ph ph-arrow-left"></i>
+        <span data-i18n="common.back">Назад</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════
+       STEP 4 — Success
+       ════════════════════════════════════════════ -->
+  <div id="step-4" class="hidden" style="text-align:center; padding: 1rem 0;">
+    <div style="width:5rem; height:5rem; background:var(--clr-accent-light); border-radius:50%; display:flex; align-items:center; justify-content:center; margin: 0 auto 1.5rem; font-size:2.5rem; color:var(--clr-accent);">
+      <i class="ph-fill ph-check-circle"></i>
+    </div>
+    <h2 class="auth-title" data-i18n="auth.register.success_title" style="margin-bottom:.5rem;">Регистрация завершена!</h2>
+    <p class="auth-subtitle" data-i18n="auth.register.success_subtitle" style="margin-bottom:2rem;">
+      Ваша учётная запись создана. Войдите в систему.
+    </p>
+    <a href="/pages/login.html" class="btn btn-primary btn-lg w-full">
+      <i class="ph ph-sign-in"></i>
+      <span data-i18n="auth.register.success_btn">Войти в систему</span>
+    </a>
+  </div>
+
+</div>
+</main>
+
+<div id="toast-container"></div>
+
+<script type="module" src="../js/pages/register.js"></script>
+</body>
+</html>

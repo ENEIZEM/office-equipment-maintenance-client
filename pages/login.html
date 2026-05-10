@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Вход — REMS</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css">
+  <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/fill/style.css">
+  <link rel="stylesheet" href="../style.css">
+</head>
+<body class="auth-page">
+
+<!-- ── Header ────────────────────────────────────────────────── -->
+<header class="auth-header">
+  <a href="/" class="auth-brand">
+    <div class="auth-brand-logo"><i class="ph ph-wrench"></i></div>
+    <span class="auth-brand-name">REMS</span>
+  </a>
+  <div class="lang-switcher">
+    <button type="button" class="lang-btn active" data-lang="ru">RU</button>
+    <button type="button" class="lang-btn"        data-lang="en">EN</button>
+  </div>
+</header>
+
+<!-- ── Main ──────────────────────────────────────────────────── -->
+<main class="auth-container">
+
+  <!-- STEP: PASSWORD LOGIN -->
+  <div class="auth-card" id="step-password">
+    <div style="margin-bottom: 1.5rem;">
+      <div style="width:3rem; height:3rem; background:var(--clr-accent-light); border-radius:var(--radius-lg); display:flex; align-items:center; justify-content:center; margin-bottom:1rem; font-size:1.5rem; color:var(--clr-accent);">
+        <i class="ph ph-lock-key"></i>
+      </div>
+      <h1 class="auth-title" data-i18n="auth.login.title">Вход в систему</h1>
+      <p class="auth-subtitle" data-i18n="auth.login.subtitle">Введите данные для входа</p>
+    </div>
+
+    <form id="form-password" novalidate>
+      <div style="display:flex; flex-direction:column; gap:1rem;">
+
+        <div class="form-group">
+          <label class="form-label" for="contact">
+            <span data-i18n="auth.login.contact_label">Эл. почта или телефон</span>
+            <span class="req">*</span>
+          </label>
+          <div class="input-wrap">
+            <i class="ph ph-at input-icon"></i>
+            <input id="contact" type="text" class="form-input" autocomplete="username"
+              data-i18n-ph="auth.login.contact_ph"
+              placeholder="example@mail.ru или +7 999 000 00 00">
+          </div>
+          <div class="form-error" id="err-contact"><i class="ph ph-warning-circle"></i><span></span></div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="password">
+            <span data-i18n="auth.login.password_label">Пароль</span>
+            <span class="req">*</span>
+          </label>
+          <div class="input-wrap">
+            <i class="ph ph-lock-simple input-icon"></i>
+            <input id="password" type="password" class="form-input" autocomplete="current-password"
+              data-i18n-ph="auth.login.password_ph"
+              placeholder="Введите пароль">
+            <button type="button" class="input-action" id="toggle-pw" tabindex="-1">
+              <i class="ph ph-eye" id="pw-icon"></i>
+            </button>
+          </div>
+          <div class="form-error" id="err-password"><i class="ph ph-warning-circle"></i><span></span></div>
+        </div>
+
+        <div class="alert alert-error" id="err-login" role="alert">
+          <i class="ph ph-warning-circle"></i>
+          <span id="err-login-text"></span>
+        </div>
+
+        <button type="submit" class="btn btn-primary w-full btn-lg" id="btn-password" style="margin-top:.25rem;">
+          <i class="ph ph-sign-in"></i>
+          <span data-i18n="auth.login.btn">Войти</span>
+        </button>
+
+      </div>
+    </form>
+
+    <div class="divider" style="margin:1.5rem 0;"><span data-i18n="common.or">или</span></div>
+
+    <p style="text-align:center; font-size:var(--text-sm); color:var(--clr-text-secondary);">
+      <span data-i18n="auth.login.no_account">Нет учётной записи?</span>
+      <a href="/pages/register.html" style="font-weight:600; margin-left:.25rem;" data-i18n="auth.login.register_link">Зарегистрироваться</a>
+    </p>
+  </div>
+
+  <!-- STEP: PIN LOGIN -->
+  <div class="auth-card hidden" id="step-pin">
+    <div style="margin-bottom: 1.5rem;">
+      <div style="width:3rem; height:3rem; background:var(--clr-accent-light); border-radius:var(--radius-lg); display:flex; align-items:center; justify-content:center; margin-bottom:1rem; font-size:1.5rem; color:var(--clr-accent);">
+        <i class="ph ph-keyhole"></i>
+      </div>
+      <h1 class="auth-title" data-i18n="auth.login.pin_title">Вход с PIN-кодом</h1>
+      <p class="auth-subtitle" data-i18n="auth.login.pin_subtitle">Введите PIN-код для быстрого входа</p>
+    </div>
+
+    <div style="display:flex; flex-direction:column; gap:1.25rem;">
+      <div>
+        <p class="form-label" style="margin-bottom:.75rem; justify-content:center;" data-i18n="auth.login.pin_label">PIN-код (6 цифр)</p>
+        <div class="pin-row" id="pin-inputs">
+          <input class="pin-input" type="text" inputmode="numeric" maxlength="1" autocomplete="off">
+          <input class="pin-input" type="text" inputmode="numeric" maxlength="1" autocomplete="off">
+          <input class="pin-input" type="text" inputmode="numeric" maxlength="1" autocomplete="off">
+          <input class="pin-input" type="text" inputmode="numeric" maxlength="1" autocomplete="off">
+          <input class="pin-input" type="text" inputmode="numeric" maxlength="1" autocomplete="off">
+          <input class="pin-input" type="text" inputmode="numeric" maxlength="1" autocomplete="off">
+        </div>
+      </div>
+
+      <div class="alert alert-error" id="err-pin" role="alert">
+        <i class="ph ph-warning-circle"></i>
+        <span id="err-pin-text"></span>
+      </div>
+
+      <button class="btn btn-primary w-full btn-lg" id="btn-pin" disabled>
+        <i class="ph ph-keyhole"></i>
+        <span data-i18n="auth.login.pin_btn">Войти с PIN</span>
+      </button>
+
+      <button type="button" class="btn btn-ghost w-full" id="back-to-password">
+        <i class="ph ph-arrow-left"></i>
+        <span data-i18n="auth.login.pin_back">Войти с паролем</span>
+      </button>
+    </div>
+  </div>
+
+</main>
+
+<div id="toast-container"></div>
+
+<script type="module" src="../js/pages/login.js"></script>
+</body>
+</html>
