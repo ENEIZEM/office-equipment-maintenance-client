@@ -30,12 +30,12 @@
 
   <!-- STEP: PASSWORD LOGIN -->
   <div class="auth-card" id="step-password">
-    <div style="margin-bottom: 1.5rem;">
-      <div style="width:3rem; height:3rem; background:var(--clr-accent-light); border-radius:var(--radius-lg); display:flex; align-items:center; justify-content:center; margin-bottom:1rem; font-size:1.5rem; color:var(--clr-accent);">
-        <i class="ph ph-lock-key"></i>
+    <div class="auth-card-header">
+      <div class="auth-card-icon"><i class="ph ph-lock-key"></i></div>
+      <div class="auth-card-header-text">
+        <h1 class="auth-title" data-i18n="auth.login.title">Вход в систему</h1>
+        <p class="auth-subtitle" data-i18n="auth.login.subtitle">Введите данные для входа</p>
       </div>
-      <h1 class="auth-title" data-i18n="auth.login.title">Вход в систему</h1>
-      <p class="auth-subtitle" data-i18n="auth.login.subtitle">Введите данные для входа</p>
     </div>
 
     <form id="form-password" novalidate>
@@ -102,9 +102,7 @@
       </div>
     </form>
 
-    <div class="divider" style="margin:1.5rem 0;"><span data-i18n="common.or">или</span></div>
-
-    <p style="text-align:center; font-size:var(--text-sm); color:var(--clr-text-secondary);">
+    <p style="text-align:center; font-size:var(--text-sm); color:var(--clr-text-secondary); margin-top:1.5rem;">
       <span data-i18n="auth.login.no_account">Нет учётной записи?</span>
       <a href="/pages/register.html" style="font-weight:600; margin-left:.25rem;" data-i18n="auth.login.register_link">Зарегистрироваться</a>
     </p>
@@ -112,12 +110,12 @@
 
   <!-- STEP: PIN LOGIN -->
   <div class="auth-card hidden" id="step-pin">
-    <div style="margin-bottom: 1.5rem;">
-      <div style="width:3rem; height:3rem; background:var(--clr-accent-light); border-radius:var(--radius-lg); display:flex; align-items:center; justify-content:center; margin-bottom:1rem; font-size:1.5rem; color:var(--clr-accent);">
-        <i class="ph ph-keyhole"></i>
+    <div class="auth-card-header">
+      <div class="auth-card-icon"><i class="ph ph-keyhole"></i></div>
+      <div class="auth-card-header-text">
+        <h1 class="auth-title" data-i18n="auth.login.pin_title">Вход с PIN-кодом</h1>
+        <p class="auth-subtitle" data-i18n="auth.login.pin_subtitle">Введите PIN-код для быстрого входа</p>
       </div>
-      <h1 class="auth-title" data-i18n="auth.login.pin_title">Вход с PIN-кодом</h1>
-      <p class="auth-subtitle" data-i18n="auth.login.pin_subtitle">Введите PIN-код для быстрого входа</p>
     </div>
 
     <div style="display:flex; flex-direction:column; gap:1.25rem;">

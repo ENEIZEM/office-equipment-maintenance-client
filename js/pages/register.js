@@ -22,6 +22,7 @@ import { auth }                              from '../api.js';
 import { requireGuest, toast, errorMessage } from '../auth.js';
 import { t, initI18n, getLang, onLangChange, applyTranslations } from '../i18n.js';
 import { wireFormGuard }                     from '../form-guard.js';
+import { createCodeInput }                   from '../lib/code-input.js';
 
 // ── Hoisted helpers ─────────────────────────────────────────────
 function q(sel) { return document.querySelector(sel); }
@@ -40,8 +41,11 @@ function getRegPinValue() {
 }
 
 function isValidContact(val) {
+  // Mirrors backend/src/lib/auth-helpers.ts → detectContactType so the
+  // client doesn't pass shorter-than-real-life phones (e.g. "+7996531")
+  // that the backend would accept here but reject later.
   const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  const phoneRe = /^\+?[\d\s\-().]{7,}$/;
+  const phoneRe = /^\+?\d{10,15}$/;
   return emailRe.test(val) || phoneRe.test(val.replace(/[\s\-().]/g, ''));
 }
 function isStrongPassword(pw) {
@@ -133,8 +137,6 @@ function hideAlert(id) {
   // ── Wizard state ─────────────────────────────────────────────
   let currentStep  = 1;
   let selectedRole = null;
-  let resendTimer  = null;
-  let resendSecs   = 60;
 
   const state = {
     contact:           '',
@@ -142,6 +144,25 @@ function hideAlert(id) {
     organization_name: '',
     organization_id:   null,
   };
+
+  // ── Code-input controller (step 2) ───────────────────────────
+  // The wiring (auto-advance, paste, backspace, resend countdown)
+  // lives in lib/code-input.js so registration, change-password
+  // and change-contact all behave identically.
+  const codeCtl = createCodeInput({
+    inputs:        '.code-input',
+    resendButton:  '#btn-resend',
+    resendWait:    '#resend-wait',
+    resendCounter: '#resend-countdown',
+    onChange: () => {
+      hideAlert('err-step2');
+      const btn2 = q('#btn-step2');
+      const val  = codeCtl.read();
+      if (btn2) btn2.disabled = val.length < 6;
+      // Auto-submit on 6th digit (preserves the existing UX).
+      if (val.length === 6) btn2?.click();
+    },
+  });
 
   // ── Step navigation ──────────────────────────────────────────
   function goStep(n) {
@@ -164,34 +185,6 @@ function hideAlert(id) {
       const line = q(`#step-line-${i}`);
       if (line) line.classList.toggle('done', i < n);
     }
-  }
-
-  // ── Resend timer ─────────────────────────────────────────────
-  // seconds: drives initial value of the countdown; if not provided,
-  // defaults to 60 (matches backend cooldown). Backend can override by
-  // returning `data.cooldown` or `error_params.retry_after`.
-  function startResendTimer(seconds = 60) {
-    clearResendTimer();
-    resendSecs = Math.max(1, Math.ceil(seconds));
-    const wait      = q('#resend-wait');
-    const btnResend = q('#btn-resend');
-    const counter   = q('#resend-countdown');
-    if (wait)      wait.classList.remove('hidden');
-    if (btnResend) btnResend.style.display = 'none';
-    if (counter)   counter.textContent = resendSecs;
-
-    resendTimer = setInterval(() => {
-      resendSecs--;
-      if (counter) counter.textContent = resendSecs;
-      if (resendSecs <= 0) {
-        clearResendTimer();
-        if (wait)      wait.classList.add('hidden');
-        if (btnResend) btnResend.style.display = '';
-      }
-    }, 1000);
-  }
-  function clearResendTimer() {
-    if (resendTimer) { clearInterval(resendTimer); resendTimer = null; }
   }
 
   // ─────────────────────────────────────────────────────────────
@@ -344,7 +337,7 @@ function hideAlert(id) {
       //                  any stale digits in the inputs)
       const reused   = resp?.data?.reused === true;
       const cooldown = Number(resp?.data?.cooldown) || 60;
-      startResendTimer(cooldown);
+      codeCtl.startResendTimer(cooldown);
 
       if (reused) {
         toast(t('auth.register.code_use_existing'), 'info');
@@ -380,44 +373,10 @@ function hideAlert(id) {
   });
 
   // ─────────────────────────────────────────────────────────────
-  // STEP 2 — Verification code inputs
+  // STEP 2 — Verification code (inputs + resend wired by codeCtl)
   // ─────────────────────────────────────────────────────────────
-  const codeInputs = document.querySelectorAll('.code-input');
-
-  codeInputs.forEach((input, idx, all) => {
-    input.addEventListener('input', () => {
-      input.classList.remove('error');
-      hideAlert('err-step2');
-      input.value = input.value.replace(/\D/, '').slice(0, 1);
-      if (input.value && idx < all.length - 1) all[idx + 1].focus();
-      const btn2 = q('#btn-step2');
-      if (btn2) btn2.disabled = getCodeValue().length < 6;
-      if (getCodeValue().length === 6) btn2?.click();
-    });
-
-    input.addEventListener('keydown', (e) => {
-      if (e.key === 'Backspace' && !input.value && idx > 0) {
-        all[idx - 1].focus();
-        all[idx - 1].value = '';
-        const btn2 = q('#btn-step2');
-        if (btn2) btn2.disabled = true;
-      }
-    });
-
-    input.addEventListener('paste', (e) => {
-      const raw = (e.clipboardData || window.clipboardData).getData('text').replace(/\D/g, '').slice(0, 6);
-      if (!raw) return;
-      e.preventDefault();
-      [...raw].forEach((ch, i) => { if (all[i]) all[i].value = ch; });
-      all[Math.min(raw.length, all.length) - 1]?.focus();
-      const btn2 = q('#btn-step2');
-      if (btn2) btn2.disabled = getCodeValue().length < 6;
-      if (getCodeValue().length === 6) btn2?.click();
-    });
-  });
-
   q('#btn-step2')?.addEventListener('click', async () => {
-    const code = getCodeValue();
+    const code = codeCtl.read();
     if (code.length < 6) return;
 
     hideAlert('err-step2');
@@ -429,15 +388,15 @@ function hideAlert(id) {
       setTimeout(() => q('#reg-name')?.focus(), 80);
     } catch (err) {
       showAlertFromError('err-step2', 'err-step2-text', err);
-      codeInputs.forEach(i => i.classList.add('error'));
+      document.querySelectorAll('.code-input').forEach(i => i.classList.add('error'));
       if (btn) btn.disabled = false;
-      codeInputs[0]?.focus();
+      codeCtl.focus();
     } finally {
       setLoading(btn, false);
     }
   });
 
-  q('#btn-back-step1')?.addEventListener('click', () => { clearResendTimer(); goStep(1); });
+  q('#btn-back-step1')?.addEventListener('click', () => { codeCtl.stopResendTimer(); goStep(1); });
 
   // Resend code (step 2)
   q('#btn-resend')?.addEventListener('click', async () => {
@@ -445,7 +404,7 @@ function hideAlert(id) {
     try {
       const resp = await auth.sendCode(state.contact, 'register', state.organization_id);
       const cooldown = Number(resp?.data?.cooldown) || 60;
-      startResendTimer(cooldown);
+      codeCtl.startResendTimer(cooldown);
       // If backend reused the existing code (shouldn't normally happen on
       // resend because UI disables the button during cooldown, but defensive),
       // tell the user; otherwise show a "code resent" confirmation.
@@ -453,12 +412,8 @@ function hideAlert(id) {
         toast(t('auth.register.code_use_existing'), 'info');
       } else {
         toast(t('auth.register.code_resend') + '…', 'ok');
-        // Clear the code inputs since we just got a fresh code
-        document.querySelectorAll('.code-input').forEach(i => {
-          i.value = '';
-          i.classList.remove('error');
-        });
-        document.querySelector('.code-input')?.focus();
+        codeCtl.clear();
+        codeCtl.focus();
         const btn2 = q('#btn-step2');
         if (btn2) btn2.disabled = true;
       }
@@ -579,7 +534,7 @@ function hideAlert(id) {
     setLoading(btn, true);
     try {
       await auth.register(payload);
-      clearResendTimer();
+      codeCtl.stopResendTimer();
       goStep(4);
     } catch (err) {
       showAlertFromError('err-step3', 'err-step3-text', err);

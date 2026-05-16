@@ -44,8 +44,8 @@
       <span class="badge-dot" id="notif-dot" style="position:absolute; top:.4rem; right:.4rem; display:none;"></span>
     </button>
 
-    <!-- User menu -->
-    <div style="position:relative;">
+    <!-- User menu — hover-driven (click also toggles for touch devices) -->
+    <div class="user-menu-wrap" style="position:relative;">
       <button class="avatar avatar-sm" id="btn-user-menu" style="cursor:pointer; border:none; font-family:inherit;">
         <span id="nav-avatar-initials">?</span>
         <img id="nav-avatar-img" src="" alt="" style="display:none;">
@@ -718,7 +718,11 @@
 <div class="modal-backdrop" id="invite-modal">
   <div class="modal">
     <div class="modal-header">
-      <h3 class="modal-title" data-i18n="members.invite">Пригласить сотрудника</h3>
+      <div class="modal-card-icon"><i class="ph-bold ph-user-plus"></i></div>
+      <div class="modal-header-text">
+        <h3 class="modal-title" data-i18n="members.invite">Пригласить сотрудника</h3>
+        <p class="modal-subtitle" data-i18n="members.invite_subtitle">Отправьте ссылку по email или телефону</p>
+      </div>
       <button class="modal-close" data-close-modal="invite-modal"><i class="ph ph-x"></i></button>
     </div>
     <div class="modal-body">
@@ -747,11 +751,11 @@
       </div>
     </div>
     <div class="modal-footer">
-      <button class="btn btn-secondary" data-close-modal="invite-modal" data-i18n="common.cancel">Отмена</button>
       <button class="btn btn-primary" id="btn-invite-confirm">
         <i class="ph ph-paper-plane-tilt"></i>
         <span>Отправить</span>
       </button>
+      <button class="btn btn-secondary" data-close-modal="invite-modal" data-i18n="common.cancel">Отмена</button>
     </div>
   </div>
 </div>
@@ -767,7 +771,11 @@
 <div class="modal-backdrop" id="field-edit-modal">
   <div class="modal">
     <div class="modal-header">
-      <h3 class="modal-title" id="field-edit-title">—</h3>
+      <div class="modal-card-icon"><i class="ph-bold ph-pencil-simple"></i></div>
+      <div class="modal-header-text">
+        <h3 class="modal-title" id="field-edit-title">—</h3>
+        <p class="modal-subtitle" data-i18n="profile.field_edit_subtitle">Введите новое значение</p>
+      </div>
       <button class="modal-close" data-close-modal="field-edit-modal"><i class="ph ph-x"></i></button>
     </div>
     <div class="modal-body">
@@ -781,8 +789,8 @@
       </div>
     </div>
     <div class="modal-footer">
-      <button class="btn btn-secondary" data-close-modal="field-edit-modal" data-i18n="common.cancel">Отмена</button>
       <button class="btn btn-primary"   id="btn-field-edit-save"           data-i18n="common.save">Сохранить</button>
+      <button class="btn btn-secondary" data-close-modal="field-edit-modal" data-i18n="common.cancel">Отмена</button>
     </div>
   </div>
 </div>
@@ -790,127 +798,171 @@
 <div class="modal-backdrop" id="change-pwd-modal">
   <div class="modal">
     <div class="modal-header">
-      <h3 class="modal-title" data-i18n="profile.change_password">Изменить пароль</h3>
+      <div class="modal-card-icon navy"><i class="ph-bold ph-key"></i></div>
+      <div class="modal-header-text">
+        <h3 class="modal-title" data-i18n="profile.change_password">Изменить пароль</h3>
+        <p class="modal-subtitle" data-i18n="profile.change_pwd_subtitle">Подтвердите личность кодом и задайте новый пароль</p>
+      </div>
       <button class="modal-close" data-close-modal="change-pwd-modal"><i class="ph ph-x"></i></button>
     </div>
     <div class="modal-body">
-      <div style="display:flex; flex-direction:column; gap:1rem;">
+      <!-- Step-progress track (mirrors register's .steps-track) -->
+      <div class="steps-track" id="chp-steps-track" style="margin-bottom:1.5rem;">
+        <div class="step-item"><div class="step-circle active" id="chp-circle-1">1</div><div class="step-line" id="chp-line-1"></div></div>
+        <div class="step-item"><div class="step-circle"        id="chp-circle-2">2</div><div class="step-line" id="chp-line-2"></div></div>
+        <div class="step-item" style="flex:0;"><div class="step-circle" id="chp-circle-3">3</div></div>
+      </div>
 
-        <!-- ── Step-up verification: send a code to a verified contact and
-                require the user to enter it before allowing the password
-                change. Backend wires this up via verification_code/target. -->
-        <div class="form-group" id="chp-verify-block">
-          <p class="form-hint" data-i18n="profile.change_pwd_verify_hint" style="margin-bottom:.5rem;">
-            Подтвердите личность кодом из почты или SMS.
-          </p>
+      <!-- ══ STEP 1 — pick a verified contact + current password ══ -->
+      <div id="chp-step-1" class="chp-step">
+        <div style="display:flex; flex-direction:column; gap:1rem;">
 
-          <!-- Contact picker — visible only when the user has 2 verified contacts. -->
-          <div id="chp-contact-choice" style="display:none; margin-bottom:.75rem;">
-            <div style="display:flex; gap:.5rem;">
-              <label class="role-card" id="chp-contact-email-card" style="flex:1; cursor:pointer; padding:.6rem; display:flex; align-items:center; gap:.5rem;">
-                <input type="radio" name="chp-contact" value="email" style="margin:0;">
-                <i class="ph ph-envelope"></i>
-                <span id="chp-contact-email-label" style="font-size:var(--text-xs); font-weight:600;">—</span>
+          <div class="form-group">
+            <p class="form-label" data-i18n="profile.change_pwd_step1_label">Подтверждение личности</p>
+
+            <!-- Contact picker — visible only when the user has 2 verified contacts.
+                 Same look as the register-page role-grid (.role-card), with a
+                 horizontal-only variant (.contact-card) and per-type accents:
+                 email = jade-teal, phone = ink-navy. -->
+            <div id="chp-contact-choice" class="role-grid" role="radiogroup" style="display:none; grid-template-columns:1fr 1fr;">
+              <label class="role-card contact-card" data-contact="email" id="chp-contact-email-card">
+                <input type="radio" name="chp-contact" value="email" class="sr-only">
+                <div class="role-card-icon"><i class="ph ph-envelope"></i></div>
+                <div class="contact-card-text">
+                  <div class="role-card-label" data-i18n="profile.email">Email</div>
+                  <div class="role-card-desc"  id="chp-contact-email-label">—</div>
+                </div>
               </label>
-              <label class="role-card" id="chp-contact-phone-card" style="flex:1; cursor:pointer; padding:.6rem; display:flex; align-items:center; gap:.5rem;">
-                <input type="radio" name="chp-contact" value="phone" style="margin:0;">
-                <i class="ph ph-device-mobile"></i>
-                <span id="chp-contact-phone-label" style="font-size:var(--text-xs); font-weight:600;">—</span>
+              <label class="role-card contact-card" data-contact="phone" id="chp-contact-phone-card">
+                <input type="radio" name="chp-contact" value="phone" class="sr-only">
+                <div class="role-card-icon"><i class="ph ph-device-mobile"></i></div>
+                <div class="contact-card-text">
+                  <div class="role-card-label" data-i18n="profile.phone">Телефон</div>
+                  <div class="role-card-desc"  id="chp-contact-phone-label">—</div>
+                </div>
               </label>
             </div>
-          </div>
 
-          <!-- Single-contact label (only one verified contact) -->
-          <p id="chp-contact-single" style="font-size:var(--text-xs); color:var(--clr-text-secondary); margin:0 0 .5rem;">
-            <span data-i18n="profile.change_pwd_code_target">Код будет отправлен на</span>
-            <strong id="chp-contact-single-target">—</strong>
-          </p>
-
-          <button type="button" id="btn-chp-send-code" class="btn btn-secondary btn-sm" style="margin-bottom:.5rem;">
-            <i class="ph ph-paper-plane-tilt"></i>
-            <span data-i18n="profile.change_pwd_send_code">Отправить код</span>
-          </button>
-
-          <!-- Code input row — hidden until first send -->
-          <div id="chp-code-row" class="hidden">
-            <p class="form-label" style="margin-bottom:.5rem; font-size:var(--text-xs);">
-              <span data-i18n="profile.change_pwd_enter_code">Введите 6-значный код</span>
-              <span id="chp-resend-block" style="margin-left:.5rem;">
-                <button type="button" id="btn-chp-resend" class="link-btn" style="font-size:var(--text-xs);" data-i18n="auth.register.code_resend">Отправить заново</button>
-                <span id="chp-resend-wait" class="hidden" style="font-size:var(--text-xs); color:var(--clr-text-muted);">
-                  (<span id="chp-resend-countdown">60</span>с)
-                </span>
-              </span>
+            <!-- Single-contact label (only one verified contact) -->
+            <p id="chp-contact-single" style="font-size:var(--text-sm); color:var(--clr-text-secondary); margin:0;">
+              <span data-i18n="profile.change_pwd_code_target">Код будет отправлен на</span>
+              <strong id="chp-contact-single-target" style="color:var(--clr-text-primary);">—</strong>
             </p>
-            <div class="pin-row" id="chp-code-inputs">
-              <input class="pin-input chp-code-input" type="text" inputmode="numeric" maxlength="1" autocomplete="off">
-              <input class="pin-input chp-code-input" type="text" inputmode="numeric" maxlength="1" autocomplete="off">
-              <input class="pin-input chp-code-input" type="text" inputmode="numeric" maxlength="1" autocomplete="off">
-              <input class="pin-input chp-code-input" type="text" inputmode="numeric" maxlength="1" autocomplete="off">
-              <input class="pin-input chp-code-input" type="text" inputmode="numeric" maxlength="1" autocomplete="off">
-              <input class="pin-input chp-code-input" type="text" inputmode="numeric" maxlength="1" autocomplete="off">
-            </div>
           </div>
-        </div>
 
-        <div class="form-group">
-          <label class="form-label" for="chp-current" data-i18n="profile.current_password">Текущий пароль</label>
-          <div class="input-wrap">
-            <i class="ph ph-lock-simple input-icon"></i>
-            <input id="chp-current" type="password" class="form-input" autocomplete="current-password">
-            <button type="button" class="input-action" data-toggle-pw="chp-current" tabindex="-1">
-              <i class="ph ph-eye"></i>
-            </button>
-          </div>
-          <div class="form-error" id="err-chp-current"><i class="ph ph-warning-circle"></i><span></span></div>
-        </div>
-        <div class="form-group">
-          <label class="form-label" for="chp-new" data-i18n="profile.new_password">Новый пароль</label>
-          <div class="input-wrap">
-            <i class="ph ph-lock-key input-icon"></i>
-            <input id="chp-new" type="password" class="form-input" autocomplete="new-password">
-            <button type="button" class="input-action" data-toggle-pw="chp-new" tabindex="-1">
-              <i class="ph ph-eye"></i>
-            </button>
-          </div>
-          <!-- Strength meter — mirrors the registration step-3 indicator -->
-          <div id="chp-strength" style="display:none; margin-top:.5rem;">
-            <div style="display:flex; gap:.2rem; margin-bottom:.25rem;">
-              <div class="pw-bar" style="flex:1; height:4px; border-radius:2px; background:var(--clr-border); transition:background .15s;"></div>
-              <div class="pw-bar" style="flex:1; height:4px; border-radius:2px; background:var(--clr-border); transition:background .15s;"></div>
-              <div class="pw-bar" style="flex:1; height:4px; border-radius:2px; background:var(--clr-border); transition:background .15s;"></div>
-              <div class="pw-bar" style="flex:1; height:4px; border-radius:2px; background:var(--clr-border); transition:background .15s;"></div>
+          <div class="form-group">
+            <label class="form-label" for="chp-current" data-i18n="profile.current_password">Текущий пароль</label>
+            <div class="input-wrap">
+              <i class="ph ph-lock-simple input-icon"></i>
+              <input id="chp-current" type="password" class="form-input" autocomplete="current-password">
+              <button type="button" class="input-action" data-toggle-pw="chp-current" tabindex="-1">
+                <i class="ph ph-eye"></i>
+              </button>
             </div>
-            <p id="chp-strength-label" style="font-size:var(--text-xs); margin:0; font-weight:600;"></p>
+            <div class="form-error" id="err-chp-current"><i class="ph ph-warning-circle"></i><span></span></div>
           </div>
-          <p class="form-hint" data-i18n="auth.register.pass_hint">Заглавная буква, строчная буква, цифра</p>
-          <div class="form-error" id="err-chp-new"><i class="ph ph-warning-circle"></i><span></span></div>
-        </div>
-        <div class="form-group">
-          <label class="form-label" for="chp-confirm" data-i18n="profile.confirm_password">Подтвердите новый пароль</label>
-          <div class="input-wrap">
-            <i class="ph ph-lock-key input-icon"></i>
-            <input id="chp-confirm" type="password" class="form-input" autocomplete="new-password">
-            <button type="button" class="input-action" data-toggle-pw="chp-confirm" tabindex="-1">
-              <i class="ph ph-eye"></i>
-            </button>
-          </div>
-          <div class="form-error" id="err-chp-confirm"><i class="ph ph-warning-circle"></i><span></span></div>
-        </div>
-        <div class="alert alert-error" id="err-chp"><i class="ph ph-warning-circle"></i><span id="err-chp-text"></span></div>
-
-        <!-- Visible warning: changing the password drops other sessions. -->
-        <div class="alert alert-warning show" style="display:flex; align-items:flex-start; gap:.6rem;">
-          <i class="ph ph-warning" style="margin-top:.15rem; flex-shrink:0;"></i>
-          <span data-i18n="profile.change_pwd_session_warning">
-            После смены пароля все остальные сессии (другие устройства) будут завершены. Текущий сеанс останется активным.
-          </span>
         </div>
       </div>
+
+      <!-- ══ STEP 2 — 6-digit verification code (mirrors register step 2) ══ -->
+      <div id="chp-step-2" class="chp-step hidden">
+        <p style="text-align:center; margin-bottom:1rem; font-size:var(--text-sm); color:var(--clr-text-secondary);">
+          <span data-i18n="auth.register.code_sent">Код отправлен на</span>
+          <strong id="chp-code-target" style="color:var(--clr-text-primary);">—</strong>
+        </p>
+        <div>
+          <p class="form-label" style="justify-content:center; margin-bottom:.75rem;" data-i18n="auth.register.code_label">Код подтверждения</p>
+          <div class="code-row" id="chp-code-row">
+            <input class="code-input chp-code-input" type="text" inputmode="numeric" maxlength="1" autocomplete="off">
+            <input class="code-input chp-code-input" type="text" inputmode="numeric" maxlength="1" autocomplete="off">
+            <input class="code-input chp-code-input" type="text" inputmode="numeric" maxlength="1" autocomplete="off">
+            <input class="code-input chp-code-input" type="text" inputmode="numeric" maxlength="1" autocomplete="off">
+            <input class="code-input chp-code-input" type="text" inputmode="numeric" maxlength="1" autocomplete="off">
+            <input class="code-input chp-code-input" type="text" inputmode="numeric" maxlength="1" autocomplete="off">
+          </div>
+          <p class="form-hint" style="text-align:center; margin-top:.5rem;" data-i18n="auth.register.code_hint">Введите 6-значный код из письма / SMS</p>
+        </div>
+        <div style="text-align:center; margin-top:1rem; font-size:var(--text-sm); color:var(--clr-text-secondary);">
+          <span id="chp-resend-wait" class="hidden">
+            <span data-i18n="auth.register.code_resend_wait">Повторно через</span>
+            <strong id="chp-resend-countdown">60</strong>с
+          </span>
+          <button type="button" id="btn-chp-resend" class="btn btn-ghost btn-sm" style="display:none;">
+            <i class="ph ph-arrow-clockwise"></i>
+            <span data-i18n="auth.register.code_resend">Отправить повторно</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- ══ STEP 3 — new password + confirm + session warning ══ -->
+      <div id="chp-step-3" class="chp-step hidden">
+        <div style="display:flex; flex-direction:column; gap:1rem;">
+          <div class="form-group">
+            <label class="form-label" for="chp-new" data-i18n="profile.new_password">Новый пароль</label>
+            <div class="input-wrap">
+              <i class="ph ph-lock-key input-icon"></i>
+              <input id="chp-new" type="password" class="form-input" autocomplete="new-password">
+              <button type="button" class="input-action" data-toggle-pw="chp-new" tabindex="-1">
+                <i class="ph ph-eye"></i>
+              </button>
+            </div>
+            <!-- Strength meter — mirrors the registration step-3 indicator -->
+            <div id="chp-strength" style="display:none; margin-top:.5rem;">
+              <div style="display:flex; gap:.2rem; margin-bottom:.25rem;">
+                <div class="pw-bar" style="flex:1; height:4px; border-radius:2px; background:var(--clr-border); transition:background .15s;"></div>
+                <div class="pw-bar" style="flex:1; height:4px; border-radius:2px; background:var(--clr-border); transition:background .15s;"></div>
+                <div class="pw-bar" style="flex:1; height:4px; border-radius:2px; background:var(--clr-border); transition:background .15s;"></div>
+                <div class="pw-bar" style="flex:1; height:4px; border-radius:2px; background:var(--clr-border); transition:background .15s;"></div>
+              </div>
+              <p id="chp-strength-label" style="font-size:var(--text-xs); margin:0; font-weight:600;"></p>
+            </div>
+            <p class="form-hint" data-i18n="auth.register.pass_hint">Заглавная буква, строчная буква, цифра</p>
+            <div class="form-error" id="err-chp-new"><i class="ph ph-warning-circle"></i><span></span></div>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="chp-confirm" data-i18n="profile.confirm_password">Подтвердите новый пароль</label>
+            <div class="input-wrap">
+              <i class="ph ph-lock-key input-icon"></i>
+              <input id="chp-confirm" type="password" class="form-input" autocomplete="new-password">
+              <button type="button" class="input-action" data-toggle-pw="chp-confirm" tabindex="-1">
+                <i class="ph ph-eye"></i>
+              </button>
+            </div>
+            <div class="form-error" id="err-chp-confirm"><i class="ph ph-warning-circle"></i><span></span></div>
+          </div>
+
+          <div class="alert alert-warning show" style="display:flex; align-items:flex-start; gap:.6rem;">
+            <i class="ph ph-warning" style="margin-top:.15rem; flex-shrink:0;"></i>
+            <span data-i18n="profile.change_pwd_session_warning">
+              После смены пароля все остальные сессии (другие устройства) будут завершены. Текущий сеанс останется активным.
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══ STEP 4 — success + login CTA ══ -->
+      <!-- Mirrors register step 4 visually. Reached only after a successful
+           password change. Closing the modal at this point triggers logout
+           because the new password is stored server-side and the user
+           should reauth with it (and the OTHER sessions were revoked). -->
+      <div id="chp-step-4" class="chp-step hidden" style="text-align:center; padding: .5rem 0;">
+        <div style="width:5rem; height:5rem; background:var(--clr-accent-light); border-radius:50%; display:flex; align-items:center; justify-content:center; margin: 0 auto 1.5rem; font-size:2.5rem; color:var(--clr-accent);">
+          <i class="ph-fill ph-check-circle"></i>
+        </div>
+        <h2 class="auth-title" data-i18n="profile.change_pwd_success_title" style="margin-bottom:.5rem;">Пароль изменён</h2>
+        <p class="auth-subtitle" data-i18n="profile.change_pwd_success_subtitle" style="margin-bottom:0;">
+          Для продолжения работы авторизуйтесь повторно с новым паролем.
+        </p>
+      </div>
+
+      <div class="alert alert-error" id="err-chp"><i class="ph ph-warning-circle"></i><span id="err-chp-text"></span></div>
     </div>
     <div class="modal-footer">
-      <button class="btn btn-secondary" data-close-modal="change-pwd-modal" data-i18n="common.cancel">Отмена</button>
-      <button class="btn btn-primary" id="btn-save-pwd" data-i18n="common.save">Сохранить</button>
+      <!-- Primary changes label per step: "Далее" → "Далее" → "Сохранить" → "Войти".
+           Label and click handler are managed by change-password.js. -->
+      <button class="btn btn-primary"   id="btn-chp-next" data-i18n="common.next">Далее</button>
+      <button class="btn btn-secondary" id="btn-chp-back" data-i18n="common.back" style="display:none;">Назад</button>
+      <button class="btn btn-secondary" id="btn-chp-cancel" data-i18n="common.cancel">Отмена</button>
     </div>
   </div>
 </div>
@@ -919,7 +971,11 @@
 <div class="modal-backdrop" id="change-pin-modal">
   <div class="modal">
     <div class="modal-header">
-      <h3 class="modal-title" data-i18n="profile.change_pin">Изменить PIN-код</h3>
+      <div class="modal-card-icon navy"><i class="ph-bold ph-lock-key"></i></div>
+      <div class="modal-header-text">
+        <h3 class="modal-title" data-i18n="profile.change_pin">Изменить PIN-код</h3>
+        <p class="modal-subtitle" data-i18n="profile.change_pin_subtitle">Используется как второй фактор при входе</p>
+      </div>
       <button class="modal-close" data-close-modal="change-pin-modal"><i class="ph ph-x"></i></button>
     </div>
     <div class="modal-body">
@@ -961,8 +1017,8 @@
       </div>
     </div>
     <div class="modal-footer">
-      <button class="btn btn-secondary" data-close-modal="change-pin-modal" data-i18n="common.cancel">Отмена</button>
       <button class="btn btn-primary" id="btn-save-pin" data-i18n="common.save">Сохранить</button>
+      <button class="btn btn-secondary" data-close-modal="change-pin-modal" data-i18n="common.cancel">Отмена</button>
     </div>
   </div>
 </div>
@@ -980,7 +1036,11 @@
 <div class="modal-backdrop" id="change-contact-modal">
   <div class="modal">
     <div class="modal-header">
-      <h3 class="modal-title" id="chc-title">—</h3>
+      <div class="modal-card-icon"><i class="ph-bold ph-envelope-simple" id="chc-icon"></i></div>
+      <div class="modal-header-text">
+        <h3 class="modal-title" id="chc-title">—</h3>
+        <p class="modal-subtitle" id="chc-subtitle" data-i18n="profile.change_contact_subtitle">Подтвердите код, чтобы сохранить новый контакт</p>
+      </div>
       <button class="modal-close" data-close-modal="change-contact-modal"><i class="ph ph-x"></i></button>
     </div>
     <div class="modal-body">
@@ -1006,48 +1066,51 @@
           </div>
         </div>
 
-        <!-- ── Step 3: enter the 6-digit code ─────────────────── -->
+        <!-- ── Step 3: enter the 6-digit code (mirrors register step 2) ── -->
         <div id="chc-step3" class="chc-step hidden">
-          <p class="form-hint" style="margin-bottom:.5rem;" data-i18n="profile.change_contact_step3_hint">—</p>
-          <p style="font-weight:600; margin:.25rem 0 .75rem;">
-            <span id="chc-step3-target">—</span>
+          <p style="text-align:center; margin-bottom:1rem; font-size:var(--text-sm); color:var(--clr-text-secondary);">
+            <span data-i18n="auth.register.code_sent">Код отправлен на</span>
+            <strong id="chc-step3-target" style="color:var(--clr-text-primary);">—</strong>
           </p>
-          <div class="form-group">
-            <p class="form-label" style="margin-bottom:.5rem;" data-i18n="profile.change_pwd_enter_code">Введите 6-значный код</p>
-            <div class="pin-row" id="chc-code-row">
-              <input class="pin-input chc-code-input" type="text" inputmode="numeric" maxlength="1" autocomplete="off">
-              <input class="pin-input chc-code-input" type="text" inputmode="numeric" maxlength="1" autocomplete="off">
-              <input class="pin-input chc-code-input" type="text" inputmode="numeric" maxlength="1" autocomplete="off">
-              <input class="pin-input chc-code-input" type="text" inputmode="numeric" maxlength="1" autocomplete="off">
-              <input class="pin-input chc-code-input" type="text" inputmode="numeric" maxlength="1" autocomplete="off">
-              <input class="pin-input chc-code-input" type="text" inputmode="numeric" maxlength="1" autocomplete="off">
+          <div>
+            <p class="form-label" style="justify-content:center; margin-bottom:.75rem;" data-i18n="auth.register.code_label">Код подтверждения</p>
+            <div class="code-row">
+              <input class="code-input chc-code-input" type="text" inputmode="numeric" maxlength="1" autocomplete="off">
+              <input class="code-input chc-code-input" type="text" inputmode="numeric" maxlength="1" autocomplete="off">
+              <input class="code-input chc-code-input" type="text" inputmode="numeric" maxlength="1" autocomplete="off">
+              <input class="code-input chc-code-input" type="text" inputmode="numeric" maxlength="1" autocomplete="off">
+              <input class="code-input chc-code-input" type="text" inputmode="numeric" maxlength="1" autocomplete="off">
+              <input class="code-input chc-code-input" type="text" inputmode="numeric" maxlength="1" autocomplete="off">
             </div>
-            <p style="margin-top:.6rem; font-size:var(--text-xs); color:var(--clr-text-muted);">
-              <button type="button" id="btn-chc-resend" class="link-btn" data-i18n="auth.register.code_resend">Отправить заново</button>
-              <span id="chc-resend-wait" class="hidden">
-                (<span id="chc-resend-countdown">60</span>с)
-              </span>
-            </p>
+            <p class="form-hint" style="text-align:center; margin-top:.5rem;" data-i18n="auth.register.code_hint">Введите 6-значный код из письма / SMS</p>
           </div>
-        </div>
-
-        <!-- "Detach instead" affordance — visible only in change mode for
-             contacts the user currently has, AND only when the user still
-             has another verified contact to fall back on. -->
-        <div id="chc-detach-row" style="margin-top:.5rem; padding-top:.85rem; border-top:1px solid var(--clr-border);">
-          <button type="button" id="btn-chc-detach" class="btn-detach-link">
-            <i class="ph-duotone ph-trash"></i>
-            <span data-i18n="profile.detach_contact">Открепить контакт</span>
-          </button>
+          <div style="text-align:center; margin-top:1rem; font-size:var(--text-sm); color:var(--clr-text-secondary);">
+            <span id="chc-resend-wait" class="hidden">
+              <span data-i18n="auth.register.code_resend_wait">Повторно через</span>
+              <strong id="chc-resend-countdown">60</strong>с
+            </span>
+            <button type="button" id="btn-chc-resend" class="btn btn-ghost btn-sm" style="display:none;">
+              <i class="ph ph-arrow-clockwise"></i>
+              <span data-i18n="auth.register.code_resend">Отправить повторно</span>
+            </button>
+          </div>
         </div>
 
         <div class="alert alert-error" id="err-chc"><i class="ph ph-warning-circle"></i><span id="err-chc-text"></span></div>
       </div>
     </div>
     <div class="modal-footer">
+      <button class="btn btn-primary" id="btn-chc-next" data-i18n="common.continue">Далее</button>
       <button class="btn btn-secondary" id="btn-chc-back" data-i18n="profile.change_contact_back" style="display:none;">Назад</button>
       <button class="btn btn-secondary" data-close-modal="change-contact-modal" data-i18n="common.cancel">Отмена</button>
-      <button class="btn btn-primary" id="btn-chc-next" data-i18n="common.continue">Далее</button>
+      <!-- Alt-action: "Detach instead" — mirrors register's
+           "Уже есть учётная запись? Войти" pattern. Visible only in
+           CHANGE mode AND when the user has another verified contact
+           to fall back on (JS toggles via #chc-detach-row.style.display). -->
+      <p class="modal-alt-action danger" id="chc-detach-row">
+        <span data-i18n="profile.change_contact_detach_hint">Не хотите менять?</span>
+        <button type="button" id="btn-chc-detach" class="link-btn" data-i18n="profile.detach_contact">Открепить контакт</button>
+      </p>
     </div>
   </div>
 </div>
@@ -1060,7 +1123,11 @@
 <div class="modal-backdrop" id="detach-contact-modal">
   <div class="modal">
     <div class="modal-header">
-      <h3 class="modal-title" id="dtc-title" data-i18n="profile.detach_contact">Открепить контакт</h3>
+      <div class="modal-card-icon danger"><i class="ph-bold ph-trash"></i></div>
+      <div class="modal-header-text">
+        <h3 class="modal-title" id="dtc-title" data-i18n="profile.detach_contact">Открепить контакт</h3>
+        <p class="modal-subtitle" data-i18n="profile.detach_subtitle">Введите контакт и пароль для подтверждения</p>
+      </div>
       <button class="modal-close" data-close-modal="detach-contact-modal"><i class="ph ph-x"></i></button>
     </div>
     <div class="modal-body">
@@ -1089,9 +1156,12 @@
       </div>
     </div>
     <div class="modal-footer">
-      <button class="btn btn-secondary" id="btn-dtc-back" data-i18n="profile.change_contact_back">Назад</button>
-      <button class="btn btn-secondary" data-close-modal="detach-contact-modal" data-i18n="common.cancel">Отмена</button>
       <button class="btn btn-danger" id="btn-dtc-submit" data-i18n="profile.detach_confirm">Открепить</button>
+      <button class="btn btn-secondary" data-close-modal="detach-contact-modal" data-i18n="common.cancel">Отмена</button>
+      <p class="modal-alt-action">
+        <span data-i18n="profile.detach_back_hint">Передумали?</span>
+        <button type="button" id="btn-dtc-back" class="link-btn" data-i18n="profile.detach_back_link">Вернуться к смене</button>
+      </p>
     </div>
   </div>
 </div>
@@ -1099,6 +1169,6 @@
 <div id="toast-container"></div>
 
 <script src="/socket.io/socket.io.js"></script>
-<script type="module" src="../js/pages/dashboard.js"></script>
+<script type="module" src="../js/pages/dashboard/index.js"></script>
 </body>
 </html>

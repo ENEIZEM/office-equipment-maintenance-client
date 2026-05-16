@@ -12,6 +12,7 @@
   <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/fill/style.css">
   <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/duotone/style.css">
   <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="css/landing.css">
   <style>
     /* ── Landing extras ────────────────────────────────────────── */
 
@@ -466,7 +467,7 @@
         <span class="badge-dot" id="nav-bell-dot" style="position:absolute; top:.4rem; right:.4rem; display:none;"></span>
       </button>
 
-      <div style="position:relative;">
+      <div class="user-menu-wrap" style="position:relative;">
         <button id="nav-user-trigger" class="navbar-user-trigger"
                 style="display:flex; align-items:center; gap:.6rem; padding:.4rem .65rem; border-radius:var(--radius-lg); border:1px solid transparent; background:transparent; font-family:inherit; cursor:pointer; transition:background .15s;">
           <span id="nav-user-name" style="font-size:var(--text-sm); font-weight:600; color:var(--clr-navy);">…</span>
@@ -1061,12 +1062,21 @@
   function wireUserDropdown() {
     const trigger = $('#nav-user-trigger');
     const dd      = $('#nav-user-dropdown');
+    const wrap    = $('.user-menu-wrap');
+    // Hover-driven (with small close-delay) for pointer devices; click
+    // still toggles so taps and keyboard activations work.
+    let closeTimer = null;
+    const open  = () => { if (closeTimer) { clearTimeout(closeTimer); closeTimer = null; } dd.classList.remove('hidden'); };
+    const close = () => dd.classList.add('hidden');
+    const deferClose = () => { if (closeTimer) clearTimeout(closeTimer); closeTimer = setTimeout(close, 120); };
+    wrap?.addEventListener('mouseenter', open);
+    wrap?.addEventListener('mouseleave', deferClose);
     trigger?.addEventListener('click', (e) => {
       e.stopPropagation();
       dd.classList.toggle('hidden');
     });
     document.addEventListener('click', (e) => {
-      if (!dd.contains(e.target) && e.target !== trigger) dd.classList.add('hidden');
+      if (wrap && !wrap.contains(e.target)) close();
     });
     // Click on name → go to Обзор tab; click on avatar (inside trigger) → same.
     $('#nav-user-name')?.addEventListener('click', (e) => {

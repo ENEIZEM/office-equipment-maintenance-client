@@ -1,0 +1,109 @@
+/* ═══════════════════════════════════════════════════════════════
+   REMS — Design tokens
+   The single source of truth for brand colours, type scale,
+   spacing, radii, shadows, transitions and layout constants.
+   Anything that another stylesheet references via var(--…)
+   lives here.
+   ═══════════════════════════════════════════════════════════════ */
+
+:root {
+  /* Brand — jade/teal green (muted, not neon) */
+  --clr-accent:        #0d9488;
+  --clr-accent-hover:  #0f766e;
+  --clr-accent-light:  #f0fdfa;
+  --clr-accent-muted:  #5eead4;
+
+  /* Second accent — dark ink-navy (was #1e3a5f → softened to #2a3c55) */
+  --clr-navy:          #2a3c55;
+  --clr-navy-hover:    #1d2c41;
+  --clr-navy-light:    #eef1f6;
+
+  /* Backgrounds — neutral gray (no blue tint) */
+  --clr-bg:            #ffffff;
+  --clr-bg-subtle:     #f9fafb;
+  --clr-bg-muted:      #f3f4f6;
+
+  /* Surfaces */
+  --clr-surface:       #ffffff;
+
+  /* Text — neutral gray (no blue tint) */
+  --clr-text-primary:  #111827;
+  --clr-text-secondary:#6b7280;
+  --clr-text-muted:    #9ca3af;
+  --clr-text-inverse:  #ffffff;
+
+  /* Borders — neutral gray */
+  --clr-border:        #e5e7eb;
+  --clr-border-focus:  #0d9488;
+
+  /* States — success is now SKY BLUE (#38bdf8) to disambiguate from teal */
+  /* Softer rose-red per user spec — replaces Tailwind red-500. The light
+     and dark derivatives stay in the same hue family so backgrounds and
+     dark text on error badges read consistently. */
+  --clr-error:         #d35d6e;
+  --clr-error-light:   #fbe7ea;
+  --clr-error-dark:    #8b2a38;
+  --clr-warning:       #f59e0b;
+  --clr-warning-light: #fffbeb;
+  /* Success now shares its hue with brand-blue per user spec. The whole
+     ramp is shifted from sky-blue (#38bdf8) to a deeper Tailwind blue-500
+     so success badges read closer to the navy + accent palette. */
+  --clr-success:       #3b82f6;
+  --clr-success-hover: #2563eb;
+  --clr-success-light: #dbeafe;
+  --clr-success-dark:  #1e40af;
+  --clr-info:          #3b82f6;
+  --clr-info-light:    #eff6ff;
+
+  /* Typography */
+  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-mono: ui-monospace, 'Cascadia Code', monospace;
+
+  /* Scale */
+  --text-xs:   0.75rem;
+  --text-sm:   0.875rem;
+  --text-base: 1rem;
+  --text-lg:   1.125rem;
+  --text-xl:   1.25rem;
+  --text-2xl:  1.5rem;
+  --text-3xl:  1.875rem;
+  --text-4xl:  2.25rem;
+
+  /* Spacing */
+  --space-1:  0.25rem;
+  --space-2:  0.5rem;
+  --space-3:  0.75rem;
+  --space-4:  1rem;
+  --space-5:  1.25rem;
+  --space-6:  1.5rem;
+  --space-8:  2rem;
+  --space-10: 2.5rem;
+  --space-12: 3rem;
+  --space-16: 4rem;
+  --space-20: 5rem;
+
+  /* Radius */
+  --radius-sm:   0.25rem;
+  --radius-md:   0.5rem;
+  --radius-lg:   0.75rem;
+  --radius-xl:   1rem;
+  --radius-2xl:  1.5rem;
+  --radius-full: 9999px;
+
+  /* Shadows */
+  --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.07), 0 1px 2px -1px rgb(0 0 0 / 0.07);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.07), 0 2px 4px -2px rgb(0 0 0 / 0.07);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.07), 0 4px 6px -4px rgb(0 0 0 / 0.07);
+  --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.07), 0 8px 10px -6px rgb(0 0 0 / 0.07);
+
+  /* Transitions */
+  --trans-fast:   150ms ease;
+  --trans-normal: 200ms ease;
+  --trans-slow:   300ms ease;
+
+  /* Layout */
+  --sidebar-w:   260px;
+  --header-h:    60px;
+  --content-max: 1200px;
+}
