@@ -86,7 +86,7 @@ function ensureModal(t) {
           <i class="ph ph-check"></i>
           <span data-i18n="common.save">${t('common.save') || 'Сохранить'}</span>
         </button>
-        <button class="btn btn-ghost" id="btn-media-replace" type="button">
+        <button class="btn btn-navy" id="btn-media-replace" type="button">
           <i class="ph ph-arrows-clockwise"></i>
           <span data-i18n="profile.media_pick_other">${t('profile.media_pick_other') || 'Выбрать другое'}</span>
         </button>

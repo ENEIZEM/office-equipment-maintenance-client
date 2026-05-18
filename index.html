@@ -4,15 +4,22 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>REMS — Система учёта заявок на ремонт оргтехники</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css">
-  <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/bold/style.css">
-  <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/fill/style.css">
-  <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/duotone/style.css">
+  <!-- All assets are self-hosted (no third-party CDN dependency).
+       Fonts, icons, three.js + Vanta are bundled under /fonts and
+       /vendor. The site survives a full offline run of the backend. -->
+  <link rel="stylesheet" href="fonts/onest.css">
+  <link rel="stylesheet" href="vendor/phosphor/regular.css">
+  <link rel="stylesheet" href="vendor/phosphor/bold.css">
+  <link rel="stylesheet" href="vendor/phosphor/fill.css">
+  <link rel="stylesheet" href="vendor/phosphor/duotone.css">
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="css/landing.css">
+  <!-- Vanta + three.js for the hero fog animation. Both deferred so
+       they don't block first paint; the inline init polls for `VANTA`
+       and `THREE` to handle the (rare) race where the body parses
+       faster than these scripts execute. -->
+  <script defer src="vendor/three.r134.min.js"></script>
+  <script defer src="vendor/vanta.waves.min.js"></script>
   <!-- Sync flag for the auth state — set BEFORE first paint so the
        navbar doesn't briefly flash the guest variant (Login / Register)
        when the user is already authenticated and the page is reloading
@@ -20,9 +27,62 @@
        #nav-guest until applyLoggedInHeader() either confirms the token
        and toggles to #nav-user, or 401s and clears the flag. -->
   <script>
+    // Pre-paint auth-state sniff. Runs synchronously in <head> so the
+    // page never flashes the guest UI for a logged-in user. Two jobs:
+    //
+    //   1. Set .has-auth on <html> so the CSS rule collapses #nav-guest
+    //      (the login/register buttons in the navbar) until JS confirms
+    //      the token is valid.
+    //
+    //   2. Rewrite EVERY in-page auth CTA so a click bypasses the
+    //      /pages/register|login page entirely and jumps straight to
+    //      the dashboard. Previously the user briefly saw the login
+    //      page (and lost the landing animation) while its inline
+    //      redirect ran. Selector targets:
+    //         a[href$="/pages/register.html"]
+    //         a[href$="/pages/login.html"]
+    //      …picking up the hero CTA, both guide-card buttons, the
+    //      final CTA section, and the navbar's guest links. The
+    //      DOM doesn't exist yet at <head> time, so we defer the
+    //      rewrite to DOMContentLoaded — which still fires before
+    //      any of the buttons can be clicked.
     try {
       if (localStorage.getItem('rems_token')) {
         document.documentElement.classList.add('has-auth');
+        document.addEventListener('DOMContentLoaded', () => {
+          // Rewrite every auth CTA to point straight at the dashboard,
+          // AND attach a click handler that pops up the blur+spinner
+          // overlay BEFORE the navigation happens. Without the overlay
+          // the user sees a half-second of blank/white between landing
+          // and dashboard render — with it the transition reads as one
+          // continuous "loading" state. The destination dashboard.html
+          // re-uses the overlay element (looked up by id) and only
+          // dismisses it after profile data is in, honouring a 1.5s
+          // min-visible floor via lib/page-loader.js.
+          document.querySelectorAll(
+            'a[href$="/pages/register.html"], a[href$="/pages/login.html"]'
+          ).forEach(a => {
+            a.href = '/pages/dashboard.html';
+            a.addEventListener('click', () => {
+              // Inject the overlay SYNCHRONOUSLY in the click frame.
+              // The browser paints this overlay together with the
+              // click-effect frame BEFORE starting to unload the
+              // landing page. Without this synchronous insert, the
+              // Vanta canvas was visibly "freezing" for 100-200ms
+              // during the document swap (raF pauses on unload). The
+              // overlay matches the dashboard's inline pre-paint
+              // overlay (opaque #f8fafc + spinner) — visually
+              // continuous across the navigation.
+              if (document.getElementById('initial-page-loader')) return;
+              const el = document.createElement('div');
+              el.id = 'initial-page-loader';
+              el.className = 'loader-overlay loader-overlay--fixed';
+              el.style.background = '#f8fafc';        /* opaque, no compositing — same as dashboard pre-paint */
+              el.innerHTML = '<span class="spinner spinner-lg" aria-label="Loading"></span>';
+              document.body.appendChild(el);
+            });
+          });
+        });
       }
     } catch (_) {}
   </script>
@@ -33,79 +93,205 @@
     .has-auth #nav-guest { display: none !important; }
   </style>
   <style>
+    /* Navbar auth buttons share ONE width across both languages so the
+       header doesn't reflow when the user toggles RU ↔ EN. The width is
+       pinned to fit the longest label of the set ("Регистрация" / 11ch);
+       a fixed min-width keeps both Login and Register buttons identical
+       on RU and on EN simultaneously. */
+    .navbar-actions #nav-guest .btn { min-width: 9.5rem; justify-content: center; }
+
+    /* Bell icon container — equal breathing room on both sides so it
+       sits in its own slot in the navbar. Icon takes the navy "accent
+       grey" tone for a stronger read against the frosted navbar bg. */
+    #nav-bell {
+      margin: 0 0.25rem;
+      --btn-icon:       var(--clr-navy);
+      --btn-icon-hover: var(--clr-accent);
+    }
+  </style>
+  <style>
     /* ── Landing extras ────────────────────────────────────────── */
 
-    /* Hero — 2-column */
+    /* Unified width tokens for the landing:
+       • --landing-content: width of every information section below
+         the hero. Tuned so two .guide-card tiles sit side-by-side
+         comfortably ("2 big squares + a bit").
+       • --landing-navbar:  width of the floating navbar — slightly
+         wider than the content so the chrome reads as a frame above
+         the page content, not as part of it. */
+    :root {
+      --landing-content: 1060px;
+      /* Navbar shell is intentionally wider than --landing-content so
+         the chrome reads as a frame ABOVE the page rather than as part
+         of the column. Was 1180px (370px side gap on a 1920px viewport,
+         feels narrow); bumped to 1540px so the side gap is roughly
+         halved (~190px) on a 1920px viewport. Content columns below
+         the hero still respect --landing-content. */
+      --landing-navbar:  1540px;
+    }
+    /* Force every information section on the landing through ONE width
+       (`--landing-content`) by overriding the global --content-max
+       token in landing scope. Anything inside body.landing that uses
+       var(--content-max) — .features-grid, .landing-footer, .container,
+       etc. — falls in line automatically. */
+    body.landing { --content-max: var(--landing-content); }
+
+    /* ── Floating navbar ────────────────────────────────────────── */
+    /* The landing-page navbar overrides the default site navbar's
+       full-bleed look: detaches from the page edges, rounds, casts a
+       drop-shadow, and sits ABOVE the Vanta hero via z-index. The
+       background is opaque-ish white so the navbar still reads on top
+       of the dark fog canvas behind it. */
+    body.landing > .navbar {
+      position: sticky;
+      top: 1rem;
+      z-index: 50;
+      width: calc(100% - 2rem);
+      max-width: var(--landing-navbar);
+      margin: 1rem auto 0;
+      border-radius: var(--radius-2xl);
+      /* Frosted-glass effect: the bg has only ~70% opacity and the
+         browser actually blurs the fog behind it. backdrop-filter is
+         widely supported now; on older browsers the more opaque
+         fallback below still reads as a clean navbar. */
+      background: rgba(255, 255, 255, 0.7);
+      backdrop-filter: blur(18px) saturate(140%);
+      -webkit-backdrop-filter: blur(18px) saturate(140%);
+      box-shadow: 0 12px 28px rgba(15, 23, 42, 0.18);
+      border: 1px solid rgba(255, 255, 255, 0.5);
+      padding: 0.75rem 1.25rem;
+    }
+    /* Browsers without backdrop-filter fall back to a more opaque tile
+       so the text on the navbar still reads against the fog behind. */
+    @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+      body.landing > .navbar { background: rgba(255, 255, 255, 0.94); }
+    }
+    /* Page background: navy under everything except the body sections
+       — eliminates the bright white strip that used to peek between
+       the top of the viewport and the navbar. */
+    body.landing { background: var(--clr-navy); }
+
+    /* ── Hero — full-bleed Vanta canvas + overlay content ───────── */
     .hero {
+      position: relative;
       padding: 0;
-      background: var(--clr-bg);
-      border-bottom: 1px solid var(--clr-border);
       overflow: hidden;
+      /* Hero canvas reaches the VERY TOP of the viewport — the floating
+         navbar sits on top of it via z-index. The negative margin is
+         generous (8rem) so we cover both the navbar's 1rem top-offset
+         and its variable height (taller now with the bilingual subtitle
+         line). The previous tight 4.5rem calc left a navy strip when
+         the navbar grew. */
+      margin-top: -8rem;
+      padding-top: 9rem;
+      background: var(--clr-navy);                  /* fallback if Vanta hasn't initialised yet */
+      color: #fff;
+      border-bottom: none;
     }
     .hero-2col {
+      position: relative;
+      z-index: 1;
       display: grid;
-      grid-template-columns: 1fr 1fr;
-      min-height: 580px;
-      max-width: 1200px;
+      grid-template-columns: 1.05fr 1fr;
+      align-items: center;
+      gap: var(--space-8);
+      min-height: 520px;
+      /* Hero content gets its OWN width — slightly wider than the
+         landing's central info column (--landing-content = 1060px)
+         but still narrower than the navbar shell (--landing-navbar =
+         1540px). Picks up "the hero text + mockup feel more
+         expansive than the article below" without dragging the eye
+         off the center axis. */
+      max-width: 1240px;
       margin: 0 auto;
+      padding: 3rem var(--space-6);
     }
     .hero-text {
-      padding: 5rem 3rem 5rem 2rem;
       display: flex;
       flex-direction: column;
       justify-content: center;
+      align-items: flex-start;                      /* hero content rides the LEFT edge of the grid */
+      text-align: left;                             /* defend against inherited `text-align: center` from .hero / .container */
     }
-    .hero-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: .4rem;
-      padding: .3rem .85rem;
-      background: var(--clr-accent-light);
-      color: var(--clr-accent);
-      border-radius: var(--radius-full);
-      font-size: var(--text-xs);
-      font-weight: 700;
-      letter-spacing: .06em;
-      text-transform: uppercase;
-      margin-bottom: 1.5rem;
-      width: fit-content;
-    }
+    .hero-text * { text-align: inherit; }
+    /* Hero title — flat white, NO shadow. The Vanta canvas behind it
+       carries enough contrast (navy waves) that pure white reads
+       cleanly without typographic effects. Previous layered shadows
+       felt overworked and competed with the subtitle below. */
     .hero-title {
-      font-size: clamp(1.75rem, 3.5vw, 2.75rem);
+      font-size: clamp(1.75rem, 3.3vw, 2.6rem);
       font-weight: 800;
-      color: var(--clr-text-primary);
-      line-height: 1.15;
-      letter-spacing: -.02em;
-      margin-bottom: 1.25rem;
+      color: #fff;
+      line-height: 1.12;
+      letter-spacing: -0.02em;
+      margin: 0 0 1rem;
+      padding: 0;
+      text-shadow: none;
     }
-    .hero-title .accent { color: var(--clr-accent); }
+    /* Accent word ("оргтехники") — pure white, NO shadow. The title
+       above already carries a layered shadow stack for legibility;
+       repeating it on the accent line made the typography feel
+       overworked. Plain white reads cleanly against the waves. */
+    .hero-title .accent {
+      color: #fff;
+      text-shadow: none;
+    }
     .hero-subtitle {
-      font-size: var(--text-base);
-      color: var(--clr-text-secondary);
-      line-height: 1.65;
-      margin-bottom: 2rem;
-      max-width: 460px;
+      font-size: var(--text-lg);
+      /* Semi-transparent so the subtitle quietly supports the title
+         rather than competing with it for attention. 0.78 alpha
+         reads against the darkest wave troughs while clearly
+         de-emphasised against the title. No text-shadow — matches the
+         title's flat treatment. */
+      color: rgba(255, 255, 255, 0.78);
+      line-height: 1.6;
+      margin: 0 0 1.75rem;
+      padding: 0;
+      max-width: 540px;
+      text-shadow: none;
     }
     .hero-actions { display: flex; gap: 1rem; flex-wrap: wrap; }
+    /* Hero CTA: jade-teal filled CTA with white label. Uses the new
+       var-based hover system (.btn base in style.css reads these
+       tokens) so hovering shifts bg, label and icon channels in
+       parallel — no per-rule override of the hover behaviour needed. */
+    .hero-actions .btn-hero-cta {
+      --btn-bg:           var(--clr-accent);
+      --btn-color:        #fff;
+      --btn-border:       var(--clr-accent);
+      --btn-icon:         #fff;
+      --btn-bg-hover:     var(--clr-accent-hover);
+      --btn-color-hover:  #ecfdf5;
+      --btn-border-hover: var(--clr-accent-hover);
+      --btn-icon-hover:   #ecfdf5;
+      font-weight: 700;
+      padding: 0.85rem 1.6rem;
+      font-size: var(--text-base);
+      box-shadow: 0 6px 20px rgba(13, 148, 136, 0.35);
+    }
+    .hero-actions .btn-hero-cta:hover { box-shadow: 0 10px 28px rgba(13, 148, 136, 0.45); }
 
-    /* Hero mockup panel */
+    /* Vanta fog canvas: the lib injects a <canvas> as the FIRST child
+       of #hero-vanta — pin it behind the content with a negative
+       z-index trick (we use z-index:0 on the canvas, z-index:1 on
+       content) and stretch it to the full hero box. */
+    .vanta-canvas { position: absolute; inset: 0; z-index: 0; }
+
+    /* Hero mockup — dark wrapper and spotlight gradients are gone.
+       The window now floats over the fog and aligns to the RIGHT edge
+       of the hero grid (mirror of the title's left edge), and is wider
+       so the right-hand half of the hero carries more visual weight. */
     .hero-mockup {
-      background: var(--clr-navy);
       display: flex;
       align-items: center;
-      justify-content: center;
-      padding: 3rem 2rem;
+      justify-content: flex-end;
+      padding: 1rem 0;
       position: relative;
-      overflow: hidden;
     }
-    .hero-mockup::before {
-      content: '';
-      position: absolute;
-      inset: 0;
-      background:
-        radial-gradient(ellipse 60% 60% at 80% 20%, rgba(13,148,136,.25) 0%, transparent 60%),
-        radial-gradient(ellipse 50% 50% at 20% 80%, rgba(13,148,136,.15) 0%, transparent 60%);
-    }
+    /* Grow the mock window from 400 px → 520 px so its right edge
+       sits flush with the grid's right edge (mirror of the title
+       padding on the left). */
+    .hero-mockup .mockup-window { max-width: 520px; }
     .mockup-window {
       background: #fff;
       border-radius: 14px;
@@ -230,12 +416,15 @@
     .stat-item-val   { font-size: 2rem; font-weight: 800; color: var(--clr-navy); line-height: 1; }
     .stat-item-label { font-size: var(--text-sm); color: var(--clr-text-secondary); margin-top: .4rem; }
 
-    /* Two-guide cards */
+    /* ── Guide cards ─────────────────────────────────────────────
+       Both cards share ONE palette now: navy "accent gray" headers/
+       icons + the brand jade-teal CTA at the bottom. The previous
+       teal-vs-navy split was visually noisy. */
     .guide-cards {
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 1.75rem;
-      max-width: 1060px;
+      max-width: var(--landing-content);
       margin: 0 auto;
     }
     .guide-card {
@@ -247,75 +436,80 @@
       flex-direction: column;
       gap: 1.5rem;
     }
+    /* Header pattern mirrors .modal-header: icon-tile on the LEFT,
+       title (xl/700/primary) on top of a muted subtitle line. The
+       previous "small uppercase TAG above the title" inverted the
+       hierarchy (label > content). */
     .guide-card-header {
       display: flex;
-      align-items: flex-start;
+      align-items: center;
       gap: 1rem;
     }
     .guide-card-icon {
-      width: 2.75rem; height: 2.75rem;
-      border-radius: var(--radius-md);
+      width: 2.75rem;
+      aspect-ratio: 1 / 1;
+      border-radius: var(--radius-lg);
       display: flex; align-items: center; justify-content: center;
       font-size: 1.35rem;
       flex-shrink: 0;
+      background: var(--clr-navy-light);
+      color: var(--clr-navy);
     }
-    .guide-card-icon.teal { background: var(--clr-accent-light); color: var(--clr-accent); }
-    .guide-card-icon.navy { background: var(--clr-navy-light);   color: var(--clr-navy); }
+    .guide-card-header-text { flex: 1; min-width: 0; }
+    /* Now reads as the secondary line under the title — small, muted,
+       not the loudest thing in the card. */
     .guide-card-tag {
-      font-size: var(--text-xs);
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: .07em;
-      color: var(--clr-accent);
-      margin-bottom: .35rem;
+      font-size: var(--text-sm);
+      font-weight: 500;
+      color: var(--clr-text-secondary);
+      margin-top: .15rem;
     }
-    .guide-card-tag.navy { color: var(--clr-navy); }
     .guide-card-title {
-      font-size: var(--text-base);
+      font-size: var(--text-xl);
       font-weight: 700;
-      color: var(--clr-navy);
-      line-height: 1.3;
+      color: var(--clr-text-primary);
+      line-height: 1.25;
     }
-    .guide-card-btn { margin-top: auto; align-self: flex-start; }
+    /* CTA spans the whole card bottom (matches modal-footer .btn pattern). */
+    .guide-card-btn { margin-top: auto; width: 100%; }
 
-    /* Teal/navy variants for guide step numbers */
-    .guide-step-num.teal {
-      background: rgba(13,148,136,.15);
-      border-color: var(--clr-accent);
-      color: var(--clr-accent);
-    }
-    .guide-step-num.navy {
-      background: rgba(30,58,95,.12);
-      border-color: var(--clr-navy);
-      color: var(--clr-navy);
-    }
-
-    /* Guide steps (inside cards) */
-    .guide-steps { display: flex; flex-direction: column; gap: .5rem; }
+    /* Step numbers — slimmer & a touch denser. Same circle for both
+       cards now that the palette is unified. */
+    .guide-steps { display: flex; flex-direction: column; gap: 0; }
     .guide-step {
       display: grid;
       grid-template-columns: auto 1fr;
       gap: 1rem;
-      align-items: flex-start;
+      align-items: stretch;       /* let left column fill the row so the line reaches the next circle */
     }
-    .guide-step-left { display: flex; flex-direction: column; align-items: center; }
-    .guide-step-num {
-      width: 2.25rem; height: 2.25rem;
-      border-radius: 50%;
-      border: 2px solid var(--clr-accent);
-      display: flex; align-items: center; justify-content: center;
-      font-size: var(--text-xs); font-weight: 700; color: var(--clr-accent);
+    .guide-step-left {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
       flex-shrink: 0;
-      background: var(--clr-accent-light);
     }
+    .guide-step-num {
+      width: 1.85rem; height: 1.85rem;
+      border-radius: 50%;
+      border: 2px solid var(--clr-navy);
+      background: var(--clr-navy-light);
+      color: var(--clr-navy);
+      display: flex; align-items: center; justify-content: center;
+      font-size: var(--text-xs); font-weight: 700;
+      flex-shrink: 0;
+    }
+    /* Line fills the gap between two consecutive circles with a tiny
+       equal margin top/bottom (4px each side). Thicker (3px) + darker
+       than the previous --clr-border so the connection actually reads. */
     .guide-step-line {
-      width: 2px;
+      width: 3px;
       flex: 1;
-      min-height: 1.25rem;
-      background: var(--clr-border);
-      margin: .3rem 0;
+      background: var(--clr-border-strong, #cbd5e1);
+      margin: 4px 0;
+      border-radius: 2px;
     }
-    .guide-step-body { padding-top: .15rem; padding-bottom: .75rem; }
+    .guide-step-body { padding-top: .1rem; padding-bottom: 1rem; }
+    .guide-step:last-child .guide-step-body { padding-bottom: 0; }
     .guide-step-title {
       font-size: var(--text-sm);
       font-weight: 700;
@@ -339,21 +533,28 @@
     }
     .feature-icon.navy { background: var(--clr-navy-light); color: var(--clr-navy); }
 
-    /* ── Request Statuses ───────────────────────────────────────── */
+    /* ── Request Statuses ─────────────────────────────────────────
+       Section spans the SAME width as the rest of the landing content
+       (--landing-content). Arrow cells (`auto`) stretch with the row
+       so the chevron is genuinely centred against the cards, not
+       pinned to a hand-tuned padding-top. */
     .status-flow {
       display: grid;
       grid-template-columns: 1fr auto 1fr auto 1fr auto 1fr auto 1fr;
       gap: .75rem;
-      align-items: start;
-      max-width: 1060px;
+      align-items: stretch;       /* rows stretch — cards in a row share height */
+      max-width: var(--landing-content);
       margin: 0 auto;
     }
+    /* Arrows: vertically centred against the card row + slightly
+       darker/bolder than the muted border colour. Phosphor `ph-bold`
+       weight is loaded site-wide, so we can pin the bolder glyph here. */
     .status-arrow {
-      color: var(--clr-border);
-      font-size: 1.25rem;
-      padding-top: 1.35rem;
+      color: var(--clr-text-muted);
+      font-size: 1.5rem;
       display: flex;
       align-items: center;
+      justify-content: center;
     }
     .status-card {
       background: var(--clr-surface);
@@ -362,6 +563,9 @@
       padding: 1.5rem 1rem;
       text-align: center;
       transition: box-shadow var(--trans-normal), transform var(--trans-normal);
+      display: flex;              /* equal-height cards across the row */
+      flex-direction: column;
+      align-items: center;
     }
     .status-card:hover { box-shadow: var(--shadow-md); transform: translateY(-2px); }
     .status-icon {
@@ -383,18 +587,17 @@
       font-size: var(--text-xs);
       color: var(--clr-text-secondary);
       line-height: 1.6;
+      margin: 0;
     }
-    /* Per-status color variants */
-    .status-new .status-icon        { background: var(--clr-navy-light);   color: var(--clr-navy); }
-    .status-new .status-badge       { background: var(--clr-navy-light);   color: var(--clr-navy); }
-    .status-accepted .status-icon   { background: #fef3c7; color: #b45309; }
-    .status-accepted .status-badge  { background: #fef3c7; color: #b45309; }
-    .status-progress .status-icon   { background: #fff7ed; color: #c2410c; }
-    .status-progress .status-badge  { background: #fff7ed; color: #c2410c; }
-    .status-done .status-icon       { background: var(--clr-accent-light); color: var(--clr-accent); }
-    .status-done .status-badge      { background: var(--clr-accent-light); color: var(--clr-accent); }
-    .status-closed .status-icon     { background: #f1f5f9; color: #64748b; }
-    .status-closed .status-badge    { background: #f1f5f9; color: #64748b; }
+    /* Per-status colour palette — five distinct tones so no two stages
+       share a colour. We avoid the brand jade-teal AND ink-navy here so
+       the lifecycle reads as its own colour story (not a recap of the
+       brand). Light bg + on-dark text per chip. */
+    .status-new      .status-icon, .status-new      .status-badge { background: #dbeafe; color: #1d4ed8; }   /* blue   */
+    .status-accepted .status-icon, .status-accepted .status-badge { background: #fef3c7; color: #b45309; }   /* amber  */
+    .status-progress .status-icon, .status-progress .status-badge { background: #fff7ed; color: #c2410c; }   /* orange */
+    .status-done     .status-icon, .status-done     .status-badge { background: #dcfce7; color: #15803d; }   /* green  */
+    .status-closed   .status-icon, .status-closed   .status-badge { background: #f1f5f9; color: #475569; }   /* slate  */
 
     @media (max-width: 900px) {
       .status-flow {
@@ -449,7 +652,7 @@
     }
   </style>
 </head>
-<body>
+<body class="landing">
 
 <!-- ── Navbar ──────────────────────────────────────────────────── -->
 <header class="navbar">
@@ -457,7 +660,15 @@
     <div class="navbar-logo"><i class="ph ph-wrench"></i></div>
     <div>
       <div class="navbar-title">REMS</div>
-      <div class="navbar-subtitle" data-i18n="app.tagline">Учёт заявок на ремонт оргтехники</div>
+      <!-- Tagline is intentionally identical across languages — it's the
+           product's English-language brand line, with two accent words
+           tinted to match the palette (jade-teal + ink-navy). No
+           data-i18n: applyTranslations() would clobber the inner spans
+           via textContent. -->
+      <div class="navbar-subtitle">
+        <span style="color:var(--clr-navy); font-weight:600;">Repair & Equipment</span>
+        <span style="color:var(--clr-accent); font-weight:600;">Management System</span>
+      </div>
     </div>
   </a>
   <div class="navbar-spacer"></div>
@@ -470,10 +681,7 @@
     <!-- Guest variant: shown when NO rems_token in localStorage -->
     <div id="nav-guest" style="display:contents;">
       <a href="/pages/login.html" class="btn btn-secondary" data-i18n="landing.cta_secondary">Войти</a>
-      <a href="/pages/register.html" class="btn btn-navy">
-        <i class="ph ph-user-plus"></i>
-        <span data-i18n="auth.register.title">Регистрация</span>
-      </a>
+      <a href="/pages/register.html" class="btn btn-navy" data-i18n="auth.register.title">Регистрация</a>
     </div>
 
     <!-- Logged-in variant: shown when rems_token is present.
@@ -483,59 +691,53 @@
     <div id="nav-user" class="hidden" style="display:contents;">
       <button class="btn btn-icon btn-ghost" id="nav-bell" style="position:relative;" aria-label="Уведомления">
         <i class="ph ph-bell" style="font-size:1.25rem;"></i>
-        <span class="badge-dot" id="nav-bell-dot" style="position:absolute; top:.4rem; right:.4rem; display:none;"></span>
+        <!-- Mirror of dashboard's bell badge — but on the landing the
+             user is presumably guest; this stays hidden in practice. -->
+        <span class="notif-count-badge" id="nav-bell-dot" style="display:none;" aria-hidden="true"></span>
       </button>
 
-      <div class="user-menu-wrap" style="position:relative;">
-        <button id="nav-user-trigger" class="navbar-user-trigger"
-                style="display:flex; align-items:center; gap:.6rem; padding:.4rem .65rem; border-radius:var(--radius-lg); border:1px solid transparent; background:transparent; font-family:inherit; cursor:pointer; transition:background .15s;">
-          <span id="nav-user-name" style="font-size:var(--text-sm); font-weight:600; color:var(--clr-navy);">…</span>
-          <span class="avatar avatar-sm" style="pointer-events:none;">
-            <span id="nav-user-initials">?</span>
-            <img id="nav-user-avatar" src="" alt="" style="display:none;">
-          </span>
+      <!-- No horizontal padding on the wrap — the gap to the bell on the
+           left and to the dropdown chrome on the right is owned by
+           `.navbar-actions` flex gap (and #nav-bell's own .25rem margin).
+           Previously this wrap had `.65rem` side-padding which doubled
+           the spacing visually. -->
+      <div class="user-menu-wrap navbar-user-trigger" style="position:relative; display:flex; align-items:center; gap:.5rem; padding:.25rem 0; border-radius:var(--radius-lg);">
+        <!-- Name is a plain link that jumps straight to the dashboard
+             overview tab. Putting it OUTSIDE the avatar button avoids
+             the old `stopPropagation`-vs-bubble race where clicking
+             the name briefly toggled the dropdown before navigating. -->
+        <a id="nav-user-name" href="/pages/dashboard.html"
+           style="font-size:var(--text-sm); font-weight:600; color:var(--clr-navy); text-decoration:none;">…</a>
+        <button id="nav-user-trigger" class="avatar avatar-sm" type="button"
+                style="cursor:pointer; border:none; padding:0;">
+          <span id="nav-user-initials">?</span>
+          <img id="nav-user-avatar" src="" alt="" style="display:none;">
         </button>
 
-        <div id="nav-user-dropdown" class="hidden"
-             style="position:absolute; top:calc(100% + .5rem); right:0; background:var(--clr-surface);
-                    border:1px solid var(--clr-border); border-radius:var(--radius-lg);
-                    box-shadow:var(--shadow-lg); min-width:260px; z-index:60; overflow:hidden;">
-          <!-- ── User header: full name + masked contact ─────────── -->
-          <div style="padding:.85rem 1rem; border-bottom:1px solid var(--clr-border);">
-            <div id="nav-dd-name"
-                 style="font-size:var(--text-sm); font-weight:700; color:var(--clr-text-primary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
-              —
-            </div>
-            <div id="nav-dd-contact"
-                 style="font-size:var(--text-xs); color:var(--clr-text-muted); margin-top:.15rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
-              —
-            </div>
-          </div>
-
-          <!-- ── Org row: clickable → /dashboard#org. Shows role badge if
-                  user is an approved member, otherwise membership status. -->
-          <a id="nav-dd-org-link" href="/pages/dashboard.html#org" class="nav-item"
-             style="border-radius:0; border:none; align-items:flex-start; gap:.65rem; padding:.7rem 1rem;">
-            <i class="ph ph-buildings" style="margin-top:.15rem;"></i>
-            <div style="flex:1; min-width:0; display:flex; flex-direction:column; gap:.25rem;">
-              <span id="nav-dd-org"
-                    style="font-size:var(--text-sm); font-weight:600; color:var(--clr-navy); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
-                —
-              </span>
-              <span id="nav-dd-pill" class="badge badge-default" style="font-size:var(--text-xs); align-self:flex-start;">—</span>
-            </div>
+        <!-- Same 3-row dropdown structure as the dashboard's #user-dropdown.
+             Header row IS the profile link now — clicking it jumps to
+             /pages/dashboard.html#profile. -->
+        <div id="nav-user-dropdown" class="hidden user-dropdown">
+          <a class="user-dropdown-row user-dropdown-row--header" href="/pages/dashboard.html#profile">
+            <span class="user-dropdown-icon"><i class="ph-duotone ph-user-circle"></i></span>
+            <span class="user-dropdown-text">
+              <span id="nav-dd-name" class="user-dropdown-name">—</span>
+              <span id="nav-dd-contact" class="user-dropdown-sub">—</span>
+            </span>
           </a>
-
-          <a href="/pages/dashboard.html#profile" class="nav-item" style="border-radius:0; border:none;">
-            <i class="ph ph-user"></i>
-            <span data-i18n="nav.profile">Профиль</span>
+          <a id="nav-dd-org-link" class="user-dropdown-row" href="/pages/dashboard.html#org">
+            <span class="user-dropdown-icon"><i class="ph-duotone ph-buildings"></i></span>
+            <span class="user-dropdown-text">
+              <span id="nav-dd-org" class="user-dropdown-name">—</span>
+              <span id="nav-dd-pill" class="badge badge-default user-dropdown-pill">—</span>
+            </span>
           </a>
-          <div style="border-top:1px solid var(--clr-border); padding:.25rem;">
-            <button id="nav-logout" class="nav-item" style="border-radius:var(--radius-sm); color:var(--clr-error);">
-              <i class="ph ph-sign-out" style="color:var(--clr-error);"></i>
-              <span data-i18n="nav.logout">Выйти</span>
-            </button>
-          </div>
+          <button id="nav-logout" class="user-dropdown-row user-dropdown-row--danger" type="button">
+            <span class="user-dropdown-icon"><i class="ph-duotone ph-sign-out"></i></span>
+            <span class="user-dropdown-text">
+              <span class="user-dropdown-name" data-i18n="nav.logout">Выйти</span>
+            </span>
+          </button>
         </div>
       </div>
     </div>
@@ -545,15 +747,13 @@
 <!-- ══════════════════════════════════════════════════════════════
      SECTION 1 — Hero  (background: white)
      ══════════════════════════════════════════════════════════════ -->
-<section class="hero">
+<section class="hero" id="hero-vanta">
   <div class="hero-2col">
 
-    <!-- Left: text + CTAs -->
+    <!-- Left: text + single CTA. The "Система управления ремонтом"
+         badge from earlier drafts is gone; the title carries the
+         brand on its own against the fog backdrop. -->
     <div class="hero-text">
-      <div class="hero-badge">
-        <i class="ph-fill ph-lightning"></i>
-        <span data-i18n="landing.hero_badge">Система управления ремонтом</span>
-      </div>
       <h1 class="hero-title">
         <span data-i18n="landing.hero_title">Учёт заявок на ремонт и обслуживание</span><br>
         <span class="accent" data-i18n="landing.hero_title_accent">оргтехники</span>
@@ -562,18 +762,15 @@
         Автоматизируйте обслуживание принтеров, копиров и компьютеров. Полная прозрачность от приёма заявки до закрытия.
       </p>
       <div class="hero-actions">
-        <a href="/pages/register.html" class="btn btn-primary btn-lg">
-          <i class="ph ph-rocket-launch"></i>
-          <span data-i18n="landing.cta_primary">Начать работу</span>
-        </a>
-        <a href="/pages/login.html" class="btn btn-secondary btn-lg">
-          <i class="ph ph-sign-in"></i>
-          <span data-i18n="landing.cta_secondary">Войти в систему</span>
+        <a href="/pages/register.html" class="btn btn-hero-cta">
+          <span data-i18n="landing.cta_primary">Зарегистрироваться</span>
         </a>
       </div>
     </div>
 
-    <!-- Right: UI mockup -->
+    <!-- Right: UI mockup. The dark navy frame + radial-gradient
+         spotlight wrapper is gone — the mockup window now floats
+         directly over the Vanta fog. -->
     <div class="hero-mockup">
       <div class="mockup-window">
         <div class="mockup-topbar">
@@ -673,19 +870,25 @@
 
     <div class="guide-cards">
 
-      <!-- Card A: Internal org -->
+      <!-- Card A: Internal org. Bold-weight icon (matches modal-header
+           icon weight) so it carries the same visual heft as a modal
+           card-icon tile. -->
       <div class="guide-card">
         <div class="guide-card-header">
-          <div class="guide-card-icon teal"><i class="ph ph-buildings"></i></div>
-          <div>
-            <div class="guide-card-tag" data-i18n="landing.guideA_tag">Внутри организации</div>
-            <div class="guide-card-title" data-i18n="landing.guideA_title">Учёт ремонтов силами своего IT-отдела</div>
+          <div class="guide-card-icon"><i class="ph-bold ph-buildings"></i></div>
+          <div class="guide-card-header-text">
+            <!-- The short category line is the loud title now; the
+                 descriptive sentence sits below as a subtitle. This
+                 puts the structural label on top (modal-style) rather
+                 than burying it under the more verbose copy. -->
+            <div class="guide-card-title" data-i18n="landing.guideA_title">Внутри организации</div>
+            <div class="guide-card-tag" data-i18n="landing.guideA_tag">Учёт ремонтов силами своего офиса</div>
           </div>
         </div>
         <div class="guide-steps">
           <div class="guide-step">
             <div class="guide-step-left">
-              <div class="guide-step-num teal">1</div>
+              <div class="guide-step-num">1</div>
               <div class="guide-step-line"></div>
             </div>
             <div class="guide-step-body">
@@ -695,7 +898,7 @@
           </div>
           <div class="guide-step">
             <div class="guide-step-left">
-              <div class="guide-step-num teal">2</div>
+              <div class="guide-step-num">2</div>
               <div class="guide-step-line"></div>
             </div>
             <div class="guide-step-body">
@@ -705,8 +908,9 @@
           </div>
           <div class="guide-step">
             <div class="guide-step-left">
-              <div class="guide-step-num teal">3</div>
-              <div class="guide-step-line" style="display:none;"></div>
+              <div class="guide-step-num">3</div>
+              <!-- last-step line is hidden by CSS (:last-child) so it
+                   doesn't dangle past the final step. -->
             </div>
             <div class="guide-step-body">
               <div class="guide-step-title" data-i18n="landing.guideA3_title">Заявки — от подачи до закрытия</div>
@@ -714,25 +918,23 @@
             </div>
           </div>
         </div>
-        <a href="/pages/register.html" class="btn btn-primary btn-sm guide-card-btn">
-          <i class="ph ph-rocket-launch"></i>
-          <span data-i18n="landing.cta_primary">Начать работу</span>
-        </a>
+        <a href="/pages/register.html" class="btn btn-primary guide-card-btn" data-i18n="landing.cta_primary">Начать работу</a>
       </div>
 
-      <!-- Card B: Inter-org (client + contractor) -->
+      <!-- Card B: Inter-org (client + contractor). Identical chrome to
+           Card A — only the icon glyph and copy differ. -->
       <div class="guide-card">
         <div class="guide-card-header">
-          <div class="guide-card-icon navy"><i class="ph ph-handshake"></i></div>
-          <div>
-            <div class="guide-card-tag navy" data-i18n="landing.guideB_tag">Между организациями</div>
-            <div class="guide-card-title" data-i18n="landing.guideB_title">Заказчик и подрядчик в одной системе</div>
+          <div class="guide-card-icon"><i class="ph-bold ph-handshake"></i></div>
+          <div class="guide-card-header-text">
+            <div class="guide-card-title" data-i18n="landing.guideB_title">Между организациями</div>
+            <div class="guide-card-tag" data-i18n="landing.guideB_tag">Заказчик и подрядчик в одной системе</div>
           </div>
         </div>
         <div class="guide-steps">
           <div class="guide-step">
             <div class="guide-step-left">
-              <div class="guide-step-num navy">1</div>
+              <div class="guide-step-num">1</div>
               <div class="guide-step-line"></div>
             </div>
             <div class="guide-step-body">
@@ -742,7 +944,7 @@
           </div>
           <div class="guide-step">
             <div class="guide-step-left">
-              <div class="guide-step-num navy">2</div>
+              <div class="guide-step-num">2</div>
               <div class="guide-step-line"></div>
             </div>
             <div class="guide-step-body">
@@ -752,8 +954,7 @@
           </div>
           <div class="guide-step">
             <div class="guide-step-left">
-              <div class="guide-step-num navy">3</div>
-              <div class="guide-step-line" style="display:none;"></div>
+              <div class="guide-step-num">3</div>
             </div>
             <div class="guide-step-body">
               <div class="guide-step-title" data-i18n="landing.guideB3_title">Обменивайтесь заявками прозрачно</div>
@@ -761,10 +962,7 @@
             </div>
           </div>
         </div>
-        <a href="/pages/register.html" class="btn btn-navy btn-sm guide-card-btn">
-          <i class="ph ph-buildings"></i>
-          <span data-i18n="landing.guideB_btn">Зарегистрировать организацию</span>
-        </a>
+        <a href="/pages/register.html" class="btn btn-primary guide-card-btn" data-i18n="landing.guideB_btn">Зарегистрировать организацию</a>
       </div>
 
     </div>
@@ -772,73 +970,13 @@
 </section>
 
 <!-- ══════════════════════════════════════════════════════════════
-     SECTION 4 — Features  (background: gray)
+     SECTION 4 — Request statuses lifecycle  (background: gray)
+     Moved BEFORE Features so the page flow is:
+       Guide (white) → Statuses (gray) → Features (white) → CTA (navy)
+     — keeps the stripe alternation intact and pulls the conceptual
+     "lifecycle" content closer to the "where do I start" guide.
      ══════════════════════════════════════════════════════════════ -->
-<section class="features" style="background: var(--clr-bg-subtle);">
-  <div style="text-align:center; margin-bottom:3rem;">
-    <p class="section-label" data-i18n="landing.features_label">Возможности</p>
-    <h2 class="section-title" data-i18n="landing.features_title">Всё что нужно для учёта оргтехники</h2>
-    <p class="section-subtitle" style="margin:0 auto; max-width:560px;" data-i18n="landing.features_subtitle">
-      Комплексное решение для управления заявками на ремонт и обслуживание оборудования
-    </p>
-  </div>
-  <div class="features-grid">
-
-    <div class="feature-card">
-      <div class="feature-icon"><i class="ph ph-clipboard-text"></i></div>
-      <h3 class="feature-title" data-i18n="landing.f1_title">Приём заявок</h3>
-      <p class="feature-desc" data-i18n="landing.f1_desc">
-        Централизованный учёт всех обращений по неисправностям принтеров, МФУ, компьютеров и другой оргтехники.
-      </p>
-    </div>
-
-    <div class="feature-card">
-      <div class="feature-icon"><i class="ph ph-chart-line-up"></i></div>
-      <h3 class="feature-title" data-i18n="landing.f2_title">Контроль статусов</h3>
-      <p class="feature-desc" data-i18n="landing.f2_desc">
-        Отслеживайте прогресс выполнения работ в режиме реального времени от приёма заявки до её закрытия.
-      </p>
-    </div>
-
-    <div class="feature-card">
-      <div class="feature-icon"><i class="ph ph-desktop-tower"></i></div>
-      <h3 class="feature-title" data-i18n="landing.f3_title">Управление оборудованием</h3>
-      <p class="feature-desc" data-i18n="landing.f3_desc">
-        Ведение реестра оборудования, история обслуживания, сроки гарантии и технические характеристики.
-      </p>
-    </div>
-
-    <div class="feature-card">
-      <div class="feature-icon navy"><i class="ph ph-users-three"></i></div>
-      <h3 class="feature-title" data-i18n="landing.f4_title">Команда специалистов</h3>
-      <p class="feature-desc" data-i18n="landing.f4_desc">
-        Разграничение ролей: руководитель, менеджер, техник, сотрудник. Назначение задач и контроль выполнения.
-      </p>
-    </div>
-
-    <div class="feature-card">
-      <div class="feature-icon navy"><i class="ph ph-bell-ringing"></i></div>
-      <h3 class="feature-title" data-i18n="landing.f5_title">Уведомления</h3>
-      <p class="feature-desc" data-i18n="landing.f5_desc">
-        Мгновенные уведомления об изменении статуса заявки, назначении техника и выполнении работ.
-      </p>
-    </div>
-
-    <div class="feature-card">
-      <div class="feature-icon navy"><i class="ph ph-chart-bar"></i></div>
-      <h3 class="feature-title" data-i18n="landing.f6_title">Отчётность</h3>
-      <p class="feature-desc" data-i18n="landing.f6_desc">
-        Статистика по заявкам, срокам выполнения, нагрузке на специалистов и состоянию оборудования.
-      </p>
-    </div>
-
-  </div>
-</section>
-
-<!-- ══════════════════════════════════════════════════════════════
-     SECTION 5 — Request statuses lifecycle  (background: white)
-     ══════════════════════════════════════════════════════════════ -->
-<section style="padding: 5rem 1.5rem; background: var(--clr-bg);">
+<section style="padding: 5rem 1.5rem; background: var(--clr-bg-subtle);">
   <div class="container">
     <div style="text-align:center; margin-bottom:3rem;">
       <p class="section-label" data-i18n="landing.statuses_label">Статусы заявок</p>
@@ -855,22 +993,22 @@
         <div class="status-icon"><i class="ph ph-plus-circle"></i></div>
         <div class="status-badge" data-i18n="landing.status_new_name">Новая</div>
         <p class="status-desc" data-i18n="landing.status_new_desc">
-          Заявка создана сотрудником и ожидает принятия менеджером.
+          Заявка создана сотрудником и ожидает принятия в работу.
         </p>
       </div>
 
-      <div class="status-arrow"><i class="ph ph-caret-right"></i></div>
+      <div class="status-arrow"><i class="ph-bold ph-caret-right"></i></div>
 
       <!-- 2. Accepted -->
       <div class="status-card status-accepted">
         <div class="status-icon"><i class="ph ph-check-circle"></i></div>
         <div class="status-badge" data-i18n="landing.status_accepted_name">Принята</div>
         <p class="status-desc" data-i18n="landing.status_accepted_desc">
-          Заявка взята в работу: исполнитель оценил приоритет.
+          Заявка принята исполнителем, оценён приоритет и сроки.
         </p>
       </div>
 
-      <div class="status-arrow"><i class="ph ph-caret-right"></i></div>
+      <div class="status-arrow"><i class="ph-bold ph-caret-right"></i></div>
 
       <!-- 3. In progress -->
       <div class="status-card status-progress">
@@ -881,25 +1019,25 @@
         </p>
       </div>
 
-      <div class="status-arrow"><i class="ph ph-caret-right"></i></div>
+      <div class="status-arrow"><i class="ph-bold ph-caret-right"></i></div>
 
       <!-- 4. Completed -->
       <div class="status-card status-done">
         <div class="status-icon"><i class="ph ph-seal-check"></i></div>
         <div class="status-badge" data-i18n="landing.status_done_name">Завершена</div>
         <p class="status-desc" data-i18n="landing.status_done_desc">
-          Исполнитель зафиксировал результат. Ожидается подтверждение от заявителя.
+          Исполнитель зафиксировал результат, ожидается подтверждение.
         </p>
       </div>
 
-      <div class="status-arrow"><i class="ph ph-caret-right"></i></div>
+      <div class="status-arrow"><i class="ph-bold ph-caret-right"></i></div>
 
       <!-- 5. Closed -->
       <div class="status-card status-closed">
         <div class="status-icon"><i class="ph ph-lock-simple"></i></div>
         <div class="status-badge" data-i18n="landing.status_closed_name">Закрыта</div>
         <p class="status-desc" data-i18n="landing.status_closed_desc">
-          Заявка закрыта. Работы выполнены и подтверждены.
+          Заявка закрыта. Работы выполнены и подтверждены заявителем.
         </p>
       </div>
 
@@ -908,38 +1046,79 @@
 </section>
 
 <!-- ══════════════════════════════════════════════════════════════
-     SECTION 6 — For whom / Roles  (background: gray)
+     SECTION 5 — Features  (background: white)
+     Moved AFTER Statuses (see SECTION 4 comment above for rationale).
+     Wrapped in a .container so the inner grid honours the same
+     left/right gutters every other landing section uses — keeps the
+     "central column" edge alignment consistent across the whole page.
      ══════════════════════════════════════════════════════════════ -->
-<section style="padding: 5rem 1.5rem; background: var(--clr-bg-subtle); border-top: 1px solid var(--clr-border);">
+<section class="features" style="background: var(--clr-bg);">
   <div class="container">
     <div style="text-align:center; margin-bottom:3rem;">
-      <p class="section-label" data-i18n="landing.roles_label">Для кого</p>
-      <h2 class="section-title" data-i18n="landing.roles_title">Каждому — своя роль</h2>
-      <p class="section-subtitle" style="margin:0 auto; max-width:540px;" data-i18n="landing.roles_subtitle">
-        REMS поддерживает разные уровни доступа в рамках одной организации
+      <p class="section-label" data-i18n="landing.features_label">Возможности</p>
+      <h2 class="section-title" data-i18n="landing.features_title">Всё что нужно для учёта оргтехники</h2>
+      <p class="section-subtitle" style="margin:0 auto; max-width:560px;" data-i18n="landing.features_subtitle">
+        Комплексное решение для управления заявками на ремонт и обслуживание оборудования
       </p>
     </div>
-    <div class="role-pill-grid" style="grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));">
+    <div class="features-grid">
 
-      <div class="role-pill">
-        <div class="role-pill-icon navy"><i class="ph ph-crown-simple"></i></div>
-        <div class="role-pill-title" data-i18n="landing.role_owner_title">Руководитель</div>
-        <p class="role-pill-desc" data-i18n="landing.role_owner_desc">
-          Создаёт организацию, приглашает сотрудников, управляет тарифом и лимитами, видит полную статистику по заявкам.
+      <div class="feature-card">
+        <div class="feature-icon"><i class="ph-bold ph-clipboard-text"></i></div>
+        <h3 class="feature-title" data-i18n="landing.f1_title">Приём заявок</h3>
+        <p class="feature-desc" data-i18n="landing.f1_desc">
+          Централизованный учёт всех обращений по неисправностям принтеров, МФУ, компьютеров и другой оргтехники.
         </p>
       </div>
 
-      <div class="role-pill">
-        <div class="role-pill-icon green"><i class="ph ph-user"></i></div>
-        <div class="role-pill-title" data-i18n="landing.role_emp_title">Сотрудник</div>
-        <p class="role-pill-desc" data-i18n="landing.role_emp_desc">
-          Подаёт заявки на ремонт своего оборудования, берёт чужие заявки в работу и отслеживает их статус.
+      <div class="feature-card">
+        <div class="feature-icon"><i class="ph-bold ph-chart-line-up"></i></div>
+        <h3 class="feature-title" data-i18n="landing.f2_title">Контроль статусов</h3>
+        <p class="feature-desc" data-i18n="landing.f2_desc">
+          Отслеживайте прогресс выполнения работ в режиме реального времени от приёма заявки до её закрытия.
+        </p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon"><i class="ph-bold ph-desktop-tower"></i></div>
+        <h3 class="feature-title" data-i18n="landing.f3_title">Управление оборудованием</h3>
+        <p class="feature-desc" data-i18n="landing.f3_desc">
+          Ведение реестра оборудования, история обслуживания, сроки гарантии и технические характеристики.
+        </p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon navy"><i class="ph-bold ph-users-three"></i></div>
+        <h3 class="feature-title" data-i18n="landing.f4_title">Команда специалистов</h3>
+        <p class="feature-desc" data-i18n="landing.f4_desc">
+          Разграничение ролей: руководитель и сотрудники. Назначение задач и контроль выполнения работ внутри организации.
+        </p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon navy"><i class="ph-bold ph-bell-ringing"></i></div>
+        <h3 class="feature-title" data-i18n="landing.f5_title">Уведомления</h3>
+        <p class="feature-desc" data-i18n="landing.f5_desc">
+          Мгновенные уведомления об изменении статуса заявки, назначении техника и выполнении работ.
+        </p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon navy"><i class="ph-bold ph-chart-bar"></i></div>
+        <h3 class="feature-title" data-i18n="landing.f6_title">Отчётность</h3>
+        <p class="feature-desc" data-i18n="landing.f6_desc">
+          Статистика по заявкам, срокам выполнения, нагрузке на специалистов и состоянию оборудования.
         </p>
       </div>
 
     </div>
   </div>
 </section>
+
+<!-- "Каждому — своя роль" section was removed: with the simplified
+     owner/employee model the matrix doesn't carry useful information
+     for visitors, and the role distinction is already covered by the
+     two onboarding scenarios above. -->
 
 <!-- ══════════════════════════════════════════════════════════════
      SECTION 7 — CTA  (background: navy)
@@ -953,10 +1132,7 @@
     <p style="font-size:var(--text-base); color:rgba(255,255,255,.6); margin-bottom:2rem; max-width:500px; margin-left:auto; margin-right:auto;" data-i18n="landing.cta_subtitle">
       Присоединяйтесь к организациям, которые уже используют REMS для управления техническим обслуживанием.
     </p>
-    <a href="/pages/register.html" class="btn btn-primary btn-xl">
-      <i class="ph ph-rocket-launch"></i>
-      <span data-i18n="landing.cta_btn">Зарегистрироваться бесплатно</span>
-    </a>
+    <a href="/pages/register.html" class="btn btn-primary btn-xl" data-i18n="landing.cta_btn">Зарегистрироваться бесплатно</a>
   </div>
 </section>
 
@@ -968,6 +1144,39 @@
 </footer>
 
 <div id="toast-container"></div>
+
+<!-- Vanta fog hero. The libs are deferred + may finish loading AFTER
+     this inline runs, so we poll briefly for VANTA before initialising.
+     Two brand colours fed into the fog: jade-teal for mid-/highlights,
+     ink-navy for the base / lowlights — same palette as the rest of
+     the UI. -->
+<script>
+  (function initVanta(retries) {
+    if (typeof VANTA !== 'undefined' && typeof THREE !== 'undefined') {
+      // WAVES takes a single base colour; we use ink-navy so the moving
+      // crests pick up jade-teal highlights naturally from the shader's
+      // built-in shininess. Zoom slightly < 1 = larger waves for calmer
+      // hero motion.
+      VANTA.WAVES({
+        el: '#hero-vanta',
+        mouseControls: true,
+        touchControls: true,
+        gyroControls: false,
+        minHeight: 200, minWidth: 200,
+        scale: 1.0,
+        scaleMobile: 1.0,
+        color: 0x2a3c55,
+        shininess: 15.0,
+        waveHeight: 15,
+        waveSpeed: 0.85,
+        zoom: 0.95,
+      });
+      return;
+    }
+    if (retries <= 0) return;
+    setTimeout(() => initVanta(retries - 1), 100);
+  })(50);
+</script>
 
 <script type="module">
   /* ── Landing page boot ───────────────────────────────────────────
@@ -1060,39 +1269,80 @@
 
     $('#nav-guest').classList.add('hidden');
     $('#nav-user').classList.remove('hidden');
+
+    // Fire-and-forget unread count for the bell chip. Lazily imported
+    // so the landing page doesn't pull notifications API for guests.
+    try {
+      const { notifications: notifApi } = await import('./js/api.js');
+      const data = await notifApi.getAll({ limit: 1, unread_only: true });
+      const unread = data.data?.pagination?.unread_count ?? 0;
+      const dot = $('#nav-bell-dot');
+      if (dot) {
+        const label = unread > 9 ? '9+' : String(unread);
+        dot.textContent  = unread > 0 ? label : '';
+        dot.style.display = unread > 0 ? '' : 'none';
+      }
+    } catch (_) { /* count is cosmetic — silent failure is fine */ }
   }
 
   function wireUserDropdown() {
     const trigger = $('#nav-user-trigger');
     const dd      = $('#nav-user-dropdown');
     const wrap    = $('.user-menu-wrap');
-    // Hover-driven (with small close-delay) for pointer devices; click
-    // still toggles so taps and keyboard activations work.
+
+    // Escape Chrome's nested-backdrop-filter limitation: move the
+    // dropdown out of the navbar (the parent already has its own
+    // backdrop-filter, so a descendant filter doesn't composite).
+    // Mirrors the dashboard logic in dashboard/index.js — see comment
+    // there for the full rationale.
+    if (dd && dd.parentElement !== document.body) {
+      document.body.appendChild(dd);
+      dd.style.position = 'fixed';
+    }
+    const position = () => {
+      if (!dd || !wrap) return;
+      const rect = wrap.getBoundingClientRect();
+      dd.style.top   = `${rect.bottom + 6}px`;
+      dd.style.right = `${window.innerWidth - rect.right}px`;
+      dd.style.left  = 'auto';
+    };
+    window.addEventListener('resize', position);
+
     let closeTimer = null;
-    const open  = () => { if (closeTimer) { clearTimeout(closeTimer); closeTimer = null; } dd.classList.remove('hidden'); };
+    const open  = () => {
+      if (closeTimer) { clearTimeout(closeTimer); closeTimer = null; }
+      position();
+      dd.classList.remove('hidden');
+    };
     const close = () => dd.classList.add('hidden');
     const deferClose = () => { if (closeTimer) clearTimeout(closeTimer); closeTimer = setTimeout(close, 120); };
     wrap?.addEventListener('mouseenter', open);
     wrap?.addEventListener('mouseleave', deferClose);
+    // Panel itself also listens so the cursor traversing wrap→panel
+    // doesn't drop the close timer mid-flight.
+    dd?.addEventListener('mouseenter', open);
+    dd?.addEventListener('mouseleave', deferClose);
     trigger?.addEventListener('click', (e) => {
       e.stopPropagation();
-      dd.classList.toggle('hidden');
+      if (dd.classList.contains('hidden')) open();
+      else close();
     });
     document.addEventListener('click', (e) => {
-      if (wrap && !wrap.contains(e.target)) close();
+      if (!wrap || !dd) return;
+      if (wrap.contains(e.target)) return;
+      if (dd.contains(e.target))   return;
+      close();
     });
-    // Click on name → go to Обзор tab; click on avatar (inside trigger) → same.
-    $('#nav-user-name')?.addEventListener('click', (e) => {
-      e.stopPropagation();
-      window.location.href = '/pages/dashboard.html';
-    });
+    // Name is a plain <a href="/pages/dashboard.html"> — no extra JS
+    // wiring needed; the browser's native navigation handles the click.
     $('#nav-logout')?.addEventListener('click', (e) => {
       e.preventDefault();
       logout();
     });
-    // Bell goes straight to notifications tab
+    // Bell on the landing → dashboard's Overview tab (notifications
+    // feed lives inside Overview since the dedicated tab was retired).
     $('#nav-bell')?.addEventListener('click', () => {
-      window.location.href = '/pages/dashboard.html#notifications';
+      window.location.href = '/pages/dashboard.html#overview';
     });
   }
 

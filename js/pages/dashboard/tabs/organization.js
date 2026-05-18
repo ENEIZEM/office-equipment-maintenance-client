@@ -9,7 +9,7 @@ import {
   orgStatusBadge, roleBadgeDescriptor,
   renderIconBadge, renderRowChip,
 } from '../badges.js';
-import { fmtDate, fmtBytes, initials } from '../format.js';
+import { fmtDate, fmtBytes, initials, setAvatar } from '../format.js';
 
 // Render an "Разрешено/Запрещено" feature flag as a row chip
 // (text + duotone icon, no container) — matches the rest of the
@@ -35,19 +35,22 @@ export function populateOrgTab(org, role, canEditOrg, canEditLim) {
   renderIconBadge(document.querySelector('#org-head-myrole'), roleBadgeDescriptor(role));
 
   // ── Logo ────────────────────────────────────────────────────
-  const logoImg  = document.querySelector('#org-logo-img');
-  const logoIni  = document.querySelector('#org-logo-initials');
+  // Use the same setAvatar() helper the personal avatar tile uses —
+  // single source of truth for the "initials | image | hover-icon"
+  // tri-state. With both widgets sharing the helper, the hover
+  // affordance is identical (ph-camera when empty, ph-camera-rotate
+  // when a photo is attached) instead of drifting between the two.
+  setAvatar(
+    document.querySelector('#org-logo-initials'),
+    document.querySelector('#org-logo-img'),
+    {
+      avatar:    org.logo,
+      full_name: org.name,
+      updated_at: org.updated_at,
+    }
+  );
   const logoWrap = document.querySelector('#org-logo-wrap');
   const logoOvr  = document.querySelector('#org-logo-overlay');
-  if (org.logo?.url) {
-    logoImg.src = org.logo.url;
-    logoImg.style.display = '';
-    logoIni.style.display = 'none';
-  } else {
-    logoIni.textContent = initials(org.name || 'O');
-    logoIni.style.display = '';
-    logoImg.style.display = 'none';
-  }
   if (canEditOrg) { logoWrap.classList.add('editable'); logoOvr.style.display = ''; }
   else            { logoWrap.classList.remove('editable'); logoOvr.style.display = 'none'; }
 

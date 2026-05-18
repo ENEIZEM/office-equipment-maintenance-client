@@ -4,12 +4,20 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Вход — REMS</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css">
-  <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/fill/style.css">
+  <!-- Self-hosted assets — see /fonts and /vendor at the project root. -->
+  <link rel="stylesheet" href="../fonts/onest.css">
+  <link rel="stylesheet" href="../vendor/phosphor/regular.css">
+  <link rel="stylesheet" href="../vendor/phosphor/fill.css">
   <link rel="stylesheet" href="../style.css">
+  <!-- Already-authenticated users land straight on the dashboard
+       instead of flashing the login form before requireGuest() runs. -->
+  <script>
+    try {
+      if (localStorage.getItem('rems_token')) {
+        window.location.replace('/pages/dashboard.html');
+      }
+    } catch (_) {}
+  </script>
 </head>
 <body class="auth-page">
 

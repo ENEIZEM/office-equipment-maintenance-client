@@ -13,9 +13,12 @@
   --clr-accent-light:  #f0fdfa;
   --clr-accent-muted:  #5eead4;
 
-  /* Second accent — dark ink-navy (was #1e3a5f → softened to #2a3c55) */
+  /* Second accent — dark ink-navy (was #1e3a5f → softened to #2a3c55).
+     --clr-navy-hover is the LIGHTER counterpart used for hover on the
+     navy filled buttons: dark surfaces lift toward the user, light
+     surfaces sink, per the design-system inversion rule. */
   --clr-navy:          #2a3c55;
-  --clr-navy-hover:    #1d2c41;
+  --clr-navy-hover:    #3d5273;
   --clr-navy-light:    #eef1f6;
 
   /* Backgrounds — neutral gray (no blue tint) */
@@ -56,8 +59,12 @@
   --clr-info-light:    #eff6ff;
 
   /* Typography */
-  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-sans: 'Onest', ui-sans-serif, system-ui, -apple-system, sans-serif;
   --font-mono: ui-monospace, 'Cascadia Code', monospace;
+  /* Onest reads slightly wide by default — pull the global tracking
+     in by ~1% for a modern, compact-but-not-cramped feel. Headings
+     get an extra step in style.css (-0.02em on .auth-title, etc.). */
+  --letter-spacing-base: -0.01em;
 
   /* Scale */
   --text-xs:   0.75rem;

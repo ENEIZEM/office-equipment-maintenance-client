@@ -1,14 +1,17 @@
 /* ═══════════════════════════════════════════════════════════════
    REMS — Lazy loader overlay
    ───────────────────────────────────────────────────────────────
-   Wraps an async operation with a deferred + minimum-visible loader.
-   Goal: don't flash a spinner for fast operations, but if something
-   IS slow, never strobe the spinner in for <100 ms either.
+   Wraps an async operation with a deferred loader.
 
-   Defaults:
-     • showAfter:    1500 ms — under this, no overlay renders at all
-     • minVisible:   1500 ms — once shown, stays at least this long
-                                even if the promise has already resolved
+   Threshold philosophy (revised):
+     • showAfter: 500 ms — sub-half-second ops don't flash a spinner
+                            at all (fast → invisible feedback).
+     • minVisible:    0 — no floor. The moment the operation finishes
+                          (= "the page started to appear"), the spinner
+                          fades. We no longer hold it artificially to
+                          prevent a perceived strobe; in practice the
+                          500 ms gate is enough to dedupe the noisy
+                          near-instant cases.
 
    Usage:
      await lazyLoad(profile.get(), { container: q('#tab-profile') });
@@ -34,8 +37,8 @@ export function lazyLoad(promise, opts = {}) {
  */
 export function attachLoader({
   container,
-  showAfter  = 1500,
-  minVisible = 1500,
+  showAfter  = 500,
+  minVisible = 0,
 } = {}) {
   const host = container || document.body;
   let overlay = null;

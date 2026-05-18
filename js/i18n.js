@@ -59,11 +59,27 @@ export function getLang() { return _lang; }
 
 /**
  * Translate a dot-notation key.
- * Falls back to the key string itself if missing.
+ *
+ * Two modes:
+ *   t('common.save')                                  → "Сохранить"
+ *   t('notifications.types.new_session', { ua: ... }) → interpolates
+ *     {{ua}}, {{any.path}} etc. against the data object. Missing
+ *     placeholders are left as-is so they're easy to spot in the UI.
+ *
+ * Falls back to the key string itself if the key is missing from the
+ * locale bundle.
  */
-export function t(key) {
+export function t(key, data) {
   const val = deepGet(_data, key);
-  return typeof val === 'string' ? val : key;
+  const tmpl = typeof val === 'string' ? val : key;
+  if (!data) return tmpl;
+  // Replace every `{{path.to.field}}` with deepGet(data, path.to.field).
+  // Unknown paths leave the placeholder untouched (helpful for debug
+  // and so the developer can spot a missing key right in the UI).
+  return tmpl.replace(/\{\{\s*([\w.]+)\s*\}\}/g, (_, path) => {
+    const v = deepGet(data, path);
+    return v === undefined || v === null ? `{{${path}}}` : String(v);
+  });
 }
 
 /** Subscribe to language changes. Returns unsubscribe fn. */

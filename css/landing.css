@@ -25,23 +25,14 @@
   text-transform: uppercase;
   margin-bottom: var(--space-6);
 }
-.hero-title {
-  font-size: clamp(var(--text-3xl), 5vw, 3.5rem);
-  font-weight: 800;
-  color: var(--clr-text-primary);
-  line-height: 1.1;
-  max-width: 720px;
-  margin: 0 auto var(--space-6);
-  letter-spacing: -0.02em;
-}
-.hero-title span { color: var(--clr-accent); }
-.hero-subtitle {
-  font-size: var(--text-lg);
-  color: var(--clr-text-secondary);
-  max-width: 560px;
-  margin: 0 auto var(--space-10);
-  line-height: 1.6;
-}
+/* Hero-title / -subtitle styling lives in the inline <style> block in
+   index.html now (alongside the Vanta-overlaid hero layout). The old
+   rules here used to colour every <span> inside the title jade-teal,
+   which clashed with the new "all-white title on animated waves" look.
+   Keeping minimal placeholders so the selectors still exist for any
+   legacy consumer, but they're transparent — no colour, no shadow.   */
+.hero-title    { font-weight: 800; line-height: 1.1; letter-spacing: -0.02em; margin: 0 auto var(--space-6); }
+.hero-subtitle { font-size: var(--text-lg); max-width: 560px; margin: 0 auto var(--space-10); line-height: 1.6; }
 .hero-actions { display: flex; align-items: center; justify-content: center; gap: var(--space-4); flex-wrap: wrap; }
 
 .features { padding: var(--space-20) var(--space-6); background: var(--clr-bg-subtle); }

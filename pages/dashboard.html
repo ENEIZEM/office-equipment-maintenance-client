@@ -4,28 +4,71 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Панель управления — REMS</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css">
-  <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/bold/style.css">
-  <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/fill/style.css">
-  <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/duotone/style.css">
+  <!-- All assets are self-hosted — see /fonts and /vendor at the
+       project root. No external CDN required to run the dashboard. -->
+  <link rel="stylesheet" href="../fonts/onest.css">
+  <link rel="stylesheet" href="../vendor/phosphor/regular.css">
+  <link rel="stylesheet" href="../vendor/phosphor/bold.css">
+  <link rel="stylesheet" href="../vendor/phosphor/fill.css">
+  <link rel="stylesheet" href="../vendor/phosphor/duotone.css">
   <link rel="stylesheet" href="../style.css">
+  <!-- Pre-paint overlay rules — inline so the spinner is styled BEFORE
+       style.css parses. Critically, the bg is OPAQUE (#f8fafc, no
+       transparency, no backdrop-filter) so the browser can paint the
+       overlay in a single frame without waiting for compositing. The
+       earlier translucent + blur variant required a second compositing
+       pass which gave ~1 frame of bare dashboard-bg flicker during the
+       document swap — visible as "the Vanta animation disappeared".
+       Opaque rect = zero-cost paint = no flicker. -->
+  <style>
+    #initial-page-loader.loader-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 99999;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #f8fafc;
+    }
+  </style>
 </head>
-<body>
+<body data-sidebar="open">
+<!-- ── Pre-paint loader ────────────────────────────────────────────
+     Visible from the very first paint of dashboard.html. Bridges the
+     gap between (a) a landing→dashboard navigation where the user
+     already clicked a CTA and saw a loader on the previous page, and
+     (b) the dashboard's own async profile/stats fetches.
+     Removed by hidePageLoader() once dashboard/index.js finishes its
+     init (with a 1.5s min-visible floor counted from the moment the
+     loader first appeared, even on the previous page). -->
+<div id="initial-page-loader" class="loader-overlay loader-overlay--fixed">
+  <span class="spinner spinner-lg" aria-label="Loading"></span>
+</div>
+
+<!-- ── Sidebar toggle (floating square, top-left) ──────────────────
+     Pulled OUT of the navbar so it sits in its own frosted-glass tile
+     at the very top-left corner — same chrome the navbar wears. Clicking
+     it toggles `body[data-sidebar="open"|"closed"]`, which a CSS rule
+     translates into a translateX on the sidebar AND a margin shift on
+     the main content. Both animate via --trans-normal so the layout
+     glides rather than snaps. -->
+<button id="sidebar-toggle" class="float-toggle" type="button" aria-label="Меню">
+  <i class="ph-bold ph-list"></i>
+</button>
 
 <!-- ── Navbar ──────────────────────────────────────────────────── -->
 <header class="navbar">
-  <button class="btn btn-icon btn-ghost" id="sidebar-toggle" style="display:none;" aria-label="Меню">
-    <i class="ph ph-list" style="font-size:1.25rem;"></i>
-  </button>
-
   <a href="/" class="navbar-brand">
     <div class="navbar-logo"><i class="ph ph-wrench"></i></div>
     <div>
       <div class="navbar-title">REMS</div>
-      <div class="navbar-subtitle" data-i18n="app.tagline">Учёт заявок на ремонт оргтехники</div>
+      <!-- Bilingual-static tagline: applyTranslations() clobbers
+           innerHTML via textContent, so the colored spans can't live
+           behind a data-i18n key. -->
+      <div class="navbar-subtitle">
+        <span style="color:var(--clr-navy); font-weight:600;">Repair & Equipment</span>
+        <span style="color:var(--clr-accent); font-weight:600;">Management System</span>
+      </div>
     </div>
   </a>
 
@@ -41,7 +84,11 @@
     <!-- Notifications button -->
     <button class="btn btn-icon btn-ghost" id="btn-notifications" style="position:relative;" aria-label="Уведомления">
       <i class="ph ph-bell" style="font-size:1.25rem;"></i>
-      <span class="badge-dot" id="notif-dot" style="position:absolute; top:.4rem; right:.4rem; display:none;"></span>
+      <!-- Unread count chip — pinned to top-right of the bell. Empty
+           by default; notifications.js writes the count and toggles
+           visibility via the `display:none` style. Capped at "99+" by
+           updateNotifBadge() so it doesn't overflow the chip. -->
+      <span class="notif-count-badge" id="notif-dot" style="display:none;" aria-hidden="true"></span>
     </button>
 
     <!-- User menu — hover-driven (click also toggles for touch devices) -->
@@ -50,43 +97,38 @@
         <span id="nav-avatar-initials">?</span>
         <img id="nav-avatar-img" src="" alt="" style="display:none;">
       </button>
-      <div id="user-dropdown" class="hidden" style="position:absolute; top:calc(100% + .5rem); right:0; background:var(--clr-surface); border:1px solid var(--clr-border); border-radius:var(--radius-lg); box-shadow:var(--shadow-lg); min-width:260px; z-index:60; overflow:hidden;">
-        <!-- ── User header: full name + masked contact ─────────── -->
-        <div style="padding:.85rem 1rem; border-bottom:1px solid var(--clr-border);">
-          <div id="dd-name"
-               style="font-size:var(--text-sm); font-weight:700; color:var(--clr-text-primary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
-            —
-          </div>
-          <div id="dd-email"
-               style="font-size:var(--text-xs); color:var(--clr-text-muted); margin-top:.15rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
-            —
-          </div>
-        </div>
-
-        <!-- ── Org row: clickable → #org tab. Shows role badge if
-                user is an approved member, otherwise membership status. -->
-        <button id="dd-org-link" class="nav-item"
-                style="border-radius:0; border:none; align-items:flex-start; gap:.65rem; padding:.7rem 1rem; width:100%; text-align:left;">
-          <i class="ph ph-buildings" style="margin-top:.15rem;"></i>
-          <div style="flex:1; min-width:0; display:flex; flex-direction:column; gap:.25rem;">
-            <span id="dd-org"
-                  style="font-size:var(--text-sm); font-weight:600; color:var(--clr-navy); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
-              —
-            </span>
-            <span id="dd-pill" class="badge badge-default" style="font-size:var(--text-xs); align-self:flex-start;">—</span>
-          </div>
+      <div id="user-dropdown" class="hidden user-dropdown">
+        <!-- HEADER row: profile-icon tile on the LEFT, name + masked
+             contact stacked on the RIGHT. The whole row is clickable
+             → switches to the Profile tab. Replaces the separate
+             "Профиль" line that used to sit further down. -->
+        <button id="dd-profile" class="user-dropdown-row user-dropdown-row--header" type="button">
+          <span class="user-dropdown-icon"><i class="ph-duotone ph-user-circle"></i></span>
+          <span class="user-dropdown-text">
+            <span id="dd-name" class="user-dropdown-name">—</span>
+            <span id="dd-email" class="user-dropdown-sub">—</span>
+          </span>
         </button>
 
-        <button class="nav-item" id="dd-profile" style="border-radius:0; border:none;">
-          <i class="ph ph-user"></i>
-          <span data-i18n="nav.profile">Профиль</span>
+        <!-- ORG row: tile-icon + org name on top + role/status chip
+             below. Click jumps to #org. The role chip itself lost its
+             duotone glyph — chip text now stands alone. -->
+        <button id="dd-org-link" class="user-dropdown-row" type="button">
+          <span class="user-dropdown-icon"><i class="ph-duotone ph-buildings"></i></span>
+          <span class="user-dropdown-text">
+            <span id="dd-org" class="user-dropdown-name">—</span>
+            <span id="dd-pill" class="badge badge-default user-dropdown-pill">—</span>
+          </span>
         </button>
-        <div style="border-top:1px solid var(--clr-border); padding:.25rem;">
-          <button class="nav-item" id="btn-logout" style="border-radius:var(--radius-sm); color:var(--clr-error);">
-            <i class="ph ph-sign-out" style="color:var(--clr-error);"></i>
-            <span data-i18n="nav.logout">Выйти</span>
-          </button>
-        </div>
+
+        <!-- LOGOUT row: red tone variant. Same tile-icon pattern as
+             above so the three rows form one vertical icon column. -->
+        <button id="btn-logout" class="user-dropdown-row user-dropdown-row--danger" type="button">
+          <span class="user-dropdown-icon"><i class="ph-duotone ph-sign-out"></i></span>
+          <span class="user-dropdown-text">
+            <span class="user-dropdown-name" data-i18n="nav.logout">Выйти</span>
+          </span>
+        </button>
       </div>
     </div>
   </div>
@@ -111,11 +153,6 @@
         <button class="nav-item" data-tab="equipment">
           <i class="ph ph-desktop-tower"></i>
           <span data-i18n="nav.equipment">Оборудование</span>
-        </button>
-        <button class="nav-item" data-tab="notifications" id="nav-notifications">
-          <i class="ph ph-bell"></i>
-          <span data-i18n="nav.notifications">Уведомления</span>
-          <span class="nav-badge hidden" id="notif-badge">0</span>
         </button>
       </div>
 
@@ -147,7 +184,7 @@
     <div class="tab-panel active" id="tab-overview">
       <div class="page-header">
         <h1 class="page-title" id="welcome-title" data-i18n="dashboard.welcome">Добро пожаловать</h1>
-        <p class="page-desc" data-i18n="app.tagline">Учёт заявок на ремонт оргтехники</p>
+        <p class="page-desc" data-i18n="dashboard.overview_desc">Сводка активности и последние уведомления</p>
       </div>
 
       <!-- Stats row -->
@@ -201,10 +238,8 @@
             <i class="ph ph-plus"></i>
             Новая заявка
           </button>
-          <button class="btn btn-secondary" data-tab-trigger="notifications">
-            <i class="ph ph-bell"></i>
-            <span data-i18n="nav.notifications">Уведомления</span>
-          </button>
+          <!-- "Уведомления" quick-action removed: the feed now lives
+               inside THIS overview tab (below). No second link needed. -->
           <button class="btn btn-secondary" data-tab-trigger="profile">
             <i class="ph ph-user"></i>
             <span data-i18n="nav.profile">Профиль</span>
@@ -212,16 +247,23 @@
         </div>
       </div>
 
-      <!-- Recent notifications -->
+      <!-- Notifications feed — full list now lives here (the dedicated
+           tab was removed in favour of one home for the feed). The
+           "mark all" button moves into this card header so the action
+           stays close to its target. The list scrolls inside the card
+           if it grows past the max-height; the card itself doesn't
+           grow indefinitely. -->
       <div class="card">
         <div class="card-header">
           <h2 class="card-title" data-i18n="notifications.title">Уведомления</h2>
-          <button class="btn btn-ghost btn-sm" data-tab-trigger="notifications">
-            <span>Все</span>
-            <i class="ph ph-arrow-right"></i>
+          <button class="btn btn-secondary btn-sm" id="btn-mark-all-read">
+            <i class="ph ph-checks"></i>
+            <span data-i18n="notifications.mark_all">Прочитать все</span>
           </button>
         </div>
-        <div id="overview-notifs">
+        <!-- Same #overview-notifs id the notifications.js module
+             already writes into; it now receives the FULL list -->
+        <div id="overview-notifs" class="overview-notifs-list">
           <div class="empty-state" style="padding: 2rem;">
             <i class="ph ph-bell-slash"></i>
             <p class="empty-state-text" data-i18n="notifications.empty">Нет новых уведомлений</p>
@@ -234,7 +276,7 @@
     <div class="tab-panel" id="tab-requests">
       <div class="page-header">
         <h1 class="page-title" data-i18n="nav.requests">Заявки</h1>
-        <p class="page-desc">Управление заявками на ремонт и обслуживание</p>
+        <p class="page-desc" data-i18n="dashboard.requests_desc">Управление заявками: создание, обработка, история</p>
       </div>
       <div class="empty-state" style="margin-top:4rem;">
         <i class="ph ph-clipboard-text"></i>
@@ -247,7 +289,7 @@
     <div class="tab-panel" id="tab-equipment">
       <div class="page-header">
         <h1 class="page-title" data-i18n="nav.equipment">Оборудование</h1>
-        <p class="page-desc">Реестр оргтехники организации</p>
+        <p class="page-desc" data-i18n="dashboard.equipment_desc">Реестр оргтехники: модели, сроки гарантии, история обслуживания</p>
       </div>
       <div class="empty-state" style="margin-top:4rem;">
         <i class="ph ph-desktop-tower"></i>
@@ -256,35 +298,18 @@
       </div>
     </div>
 
-    <!-- ══ TAB: Notifications ══════════════════════════════════ -->
-    <div class="tab-panel" id="tab-notifications">
-      <div class="page-header" style="display:flex; align-items:center; justify-content:space-between;">
-        <div>
-          <h1 class="page-title" data-i18n="notifications.title">Уведомления</h1>
-          <p class="page-desc">Все системные уведомления</p>
-        </div>
-        <button class="btn btn-secondary btn-sm" id="btn-mark-all-read">
-          <i class="ph ph-checks"></i>
-          <span data-i18n="notifications.mark_all">Прочитать все</span>
-        </button>
-      </div>
+    <!-- Notifications tab REMOVED — the full notifications feed now
+         lives inside the Overview tab via #overview-notifs (rendered
+         by notifications.js). Mark-all-read button moved to the
+         overview header. -->
 
-      <div class="card" style="padding:0; overflow:hidden;">
-        <div id="notif-list">
-          <div class="empty-state">
-            <i class="ph ph-bell-slash"></i>
-            <p class="empty-state-title" data-i18n="notifications.empty">Нет уведомлений</p>
-          </div>
-        </div>
-      </div>
-    </div>
 
     <!-- ══ TAB: Members ════════════════════════════════════════ -->
     <div class="tab-panel" id="tab-members">
       <div class="page-header" style="display:flex; align-items:center; justify-content:space-between;">
         <div>
           <h1 class="page-title" data-i18n="members.title">Сотрудники</h1>
-          <p class="page-desc">Управление участниками организации</p>
+          <p class="page-desc" data-i18n="dashboard.members_desc">Участники организации, роли и заявки на вступление</p>
         </div>
         <button class="btn btn-primary btn-sm" id="btn-invite">
           <i class="ph ph-user-plus"></i>
@@ -292,18 +317,34 @@
         </button>
       </div>
 
-      <!-- Pending members -->
-      <div class="card" id="pending-section" style="margin-bottom:1.5rem; display:none;">
-        <div class="card-header">
+      <!-- ─── Pending members (owner-only). Hidden by default; shown
+           when the API returns a non-empty pending list. Each entry
+           gets Approve / Reject inline buttons. -->
+      <div class="card" id="pending-section" style="margin-bottom:1.5rem; display:none; padding:0; overflow:hidden;">
+        <!-- padding-bottom trimmed to 0.5rem so the visible gap between
+             the header text and the first row's content stays compact
+             (row brings its own padding-top). Without this trim the
+             first row felt visually "buried" by ~2rem of top space. -->
+        <div class="card-header" style="padding: 1rem 1.25rem 0.5rem;">
           <h2 class="card-title" data-i18n="members.pending">Ожидают одобрения</h2>
         </div>
-        <div id="pending-list"></div>
+        <div id="pending-list" class="members-list"></div>
       </div>
 
-      <div class="card">
-        <div class="empty-state">
-          <i class="ph ph-users"></i>
-          <p class="empty-state-title" data-i18n="members.no_pending">Нет ожидающих заявок</p>
+      <!-- ─── Approved directory. One identity-card per member showing
+           avatar + name + masked email/phone + department + "в
+           организации с <date>". Owner's row is pinned first; rest
+           sorted by name alphabetically. -->
+      <div class="card" id="approved-section" style="padding:0; overflow:hidden;">
+        <div class="card-header" style="padding: 1rem 1.25rem 0.5rem;">
+          <h2 class="card-title" data-i18n="members.approved">Сотрудники организации</h2>
+          <span id="approved-count" class="badge badge-default"></span>
+        </div>
+        <div id="approved-list" class="members-list">
+          <div class="empty-state">
+            <i class="ph ph-users"></i>
+            <p class="empty-state-title" data-i18n="members.empty">Пока никого нет</p>
+          </div>
         </div>
       </div>
     </div>
@@ -315,6 +356,7 @@
     <div class="tab-panel" id="tab-org">
       <div class="page-header">
         <h1 class="page-title" data-i18n="nav.your_organization">Ваша организация</h1>
+        <p class="page-desc" data-i18n="dashboard.org_desc">Информация об организации и её настройки</p>
       </div>
 
       <!-- ─── Header strip ─────────────────────────────────────────────── -->
@@ -534,6 +576,7 @@
     <div class="tab-panel" id="tab-profile">
       <div class="page-header">
         <h1 class="page-title" data-i18n="profile.title">Профиль</h1>
+        <p class="page-desc" data-i18n="dashboard.profile_desc">Личные данные, безопасность и подключённые устройства</p>
       </div>
 
       <!-- ─── Header strip ────────────────────────────────────────────────── -->
@@ -1154,6 +1197,39 @@
         <span data-i18n="profile.detach_back_hint">Передумали?</span>
         <button type="button" id="btn-dtc-back" class="link-btn" data-i18n="profile.detach_back_link">Вернуться к смене</button>
       </p>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════
+     MODAL: Confirm remove member (owner-only).
+     Shown by JS before calling DELETE /api/orgs/members/:id. Member
+     name lands in #remove-member-name via JS so we don't need a per-
+     row modal copy.
+     ══════════════════════════════════════════════════════════════ -->
+<div class="modal-backdrop" id="remove-member-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-card-icon danger"><i class="ph-bold ph-user-minus"></i></div>
+      <div class="modal-header-text">
+        <h3 class="modal-title" data-i18n="members.remove_confirm_title">Удалить сотрудника</h3>
+        <p class="modal-subtitle" data-i18n="members.remove_confirm_subtitle">Подтвердите удаление участника из организации</p>
+      </div>
+      <button class="modal-close" data-close-modal="remove-member-modal"><i class="ph ph-x"></i></button>
+    </div>
+    <div class="modal-body">
+      <p class="form-hint">
+        <span data-i18n="members.remove_confirm_lead">Сотрудник</span>
+        <strong id="remove-member-name" style="color:var(--clr-text-primary);">—</strong>
+        <span data-i18n="members.remove_confirm_tail">будет исключён из организации. История его заявок останется привязанной к нему.</span>
+      </p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-danger" id="btn-remove-member-confirm">
+        <i class="ph-bold ph-user-minus"></i>
+        <span data-i18n="members.remove">Удалить из организации</span>
+      </button>
+      <button class="btn btn-secondary" data-close-modal="remove-member-modal" data-i18n="common.cancel">Отмена</button>
     </div>
   </div>
 </div>

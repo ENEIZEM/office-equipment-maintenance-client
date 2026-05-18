@@ -22,6 +22,8 @@ import {
   loadNotificationCount,
   addNotification,
   rerender as rerenderNotifications,
+  resolveTitle as resolveNotifTitle,
+  resolveBody  as resolveNotifBody,
 } from './notifications.js';
 import {
   openModal,
@@ -41,6 +43,14 @@ import { fmtDate, setAvatar, initials, roleLabel } from './format.js';
 import { renderProfileTab }     from './tabs/profile.js';
 import { populateOrgTab }       from './tabs/organization.js';
 import { attachLoader }         from '../../lib/lazy-loader.js';
+import { hidePageLoader }       from '../../lib/page-loader.js';
+
+// Hide the pre-paint navigation overlay the INSTANT JS starts running.
+// Per the revised timing spec ("page started rendering" = drop the
+// spinner) — we no longer wait for profile data. The in-page loaders
+// (attachLoader on loadProfile etc.) handle their own feedback with
+// the 500 ms threshold.
+hidePageLoader();
 
 // ── Init ──────────────────────────────────────────────────────────
 await initI18n();
@@ -49,7 +59,11 @@ if (!requireAuth()) throw new Error('not logged in');
 // ─────────────────────────────────────────────────────────────────
 // TAB NAVIGATION
 // ─────────────────────────────────────────────────────────────────
-const TAB_IDS = ['overview', 'requests', 'equipment', 'notifications', 'members', 'org', 'profile'];
+// `notifications` is no longer a top-level tab — the full feed lives
+// inside the Overview tab via #overview-notifs. Keeping the legacy
+// hash alias `#notifications` is handled below (it redirects to
+// overview so old toast → href links don't 404).
+const TAB_IDS = ['overview', 'requests', 'equipment', 'members', 'org', 'profile'];
 let currentTab = 'overview';
 
 function switchTab(name, { updateHash = true } = {}) {
@@ -72,7 +86,9 @@ function switchTab(name, { updateHash = true } = {}) {
       }
     } catch {}
   }
-  if (name === 'notifications') loadNotifications();
+  // Notifications tab was retired — the feed now lives inside the
+  // Overview tab, so we refresh it on every Overview visit.
+  if (name === 'overview')      loadNotifications();
   if (name === 'members')       loadMembers();
   if (name === 'org')           loadOrgProfile();
   if (name === 'profile')       loadSessions();    // refresh session list each open
@@ -107,7 +123,42 @@ const userDropdown = q('#user-dropdown');
 const userMenuWrap = q('.user-menu-wrap');
 let _ddCloseTimer = null;
 
-function openDD()  { if (_ddCloseTimer) { clearTimeout(_ddCloseTimer); _ddCloseTimer = null; } userDropdown?.classList.remove('hidden'); }
+/* Chrome's `backdrop-filter` does NOT composite for an element nested
+   inside an ancestor that also has `backdrop-filter` — the dropdown
+   used to render as plain translucent white inside the navbar. The
+   fix: physically MOVE the dropdown out of the navbar to document.body
+   on mount, then position it via `position: fixed` against the wrap's
+   bounding box. The trigger still fires hover/click handlers on the
+   wrap (which stays in the navbar), but the panel itself paints in a
+   sibling stacking context — no parent filter to fight with. */
+if (userDropdown && userDropdown.parentElement !== document.body) {
+  document.body.appendChild(userDropdown);
+  userDropdown.style.position = 'fixed';
+}
+
+/* Re-anchor the floating panel to the wrap's bottom-right corner. The
+   dropdown stays open during this call (we run it whenever the panel
+   becomes visible OR the viewport resizes). The 6 px gap matches the
+   CSS `top: calc(100% + 6px)` rule used in the unmoved layout. */
+function positionDD() {
+  if (!userDropdown || !userMenuWrap) return;
+  const rect = userMenuWrap.getBoundingClientRect();
+  // Anchor by the wrap's RIGHT edge (panel's right aligns with wrap's
+  // right) and its BOTTOM (panel's top sits 6 px below). Using
+  // pageX/pageY would shift the panel on scroll because we use
+  // `position: fixed`; fixed elements are viewport-coordinated, so
+  // viewport rects from getBoundingClientRect are exactly right.
+  userDropdown.style.top   = `${rect.bottom + 6}px`;
+  userDropdown.style.right = `${window.innerWidth - rect.right}px`;
+  userDropdown.style.left  = 'auto';
+}
+window.addEventListener('resize', positionDD);
+
+function openDD()  {
+  if (_ddCloseTimer) { clearTimeout(_ddCloseTimer); _ddCloseTimer = null; }
+  positionDD();
+  userDropdown?.classList.remove('hidden');
+}
 function closeDD() { userDropdown?.classList.add('hidden'); }
 function deferCloseDD() {
   if (_ddCloseTimer) clearTimeout(_ddCloseTimer);
@@ -116,14 +167,23 @@ function deferCloseDD() {
 
 userMenuWrap?.addEventListener('mouseenter', openDD);
 userMenuWrap?.addEventListener('mouseleave', deferCloseDD);
+/* The relocated panel listens for hover too, so the slow-mouse-glide
+   from avatar to dropdown doesn't drop it. mouseenter on the panel
+   cancels the close timer; mouseleave starts a fresh one. */
+userDropdown?.addEventListener('mouseenter', openDD);
+userDropdown?.addEventListener('mouseleave', deferCloseDD);
 
 q('#btn-user-menu')?.addEventListener('click', (e) => {
   e.stopPropagation();
-  userDropdown?.classList.toggle('hidden');
+  if (userDropdown?.classList.contains('hidden')) openDD();
+  else closeDD();
 });
-// Tap outside the wrap collapses the menu (touch fallback).
+// Tap outside the wrap AND outside the dropdown collapses the menu.
 document.addEventListener('click', (e) => {
-  if (userMenuWrap && !userMenuWrap.contains(e.target)) closeDD();
+  if (!userMenuWrap || !userDropdown) return;
+  if (userMenuWrap.contains(e.target)) return;
+  if (userDropdown.contains(e.target)) return;
+  closeDD();
 });
 
 q('#dd-profile')?.addEventListener('click',  () => { closeDD(); switchTab('profile'); });
@@ -133,29 +193,64 @@ q('#dd-org-link')?.addEventListener('click', () => { closeDD(); switchTab('org')
 q('#btn-logout')?.addEventListener('click',  () => logout());
 
 // ─────────────────────────────────────────────────────────────────
-// SIDEBAR MOBILE TOGGLE
+// SIDEBAR TOGGLE (floating chrome)
 // ─────────────────────────────────────────────────────────────────
-const sidebar = q('#sidebar');
+// The toggle now drives `body[data-sidebar="open"|"closed"]`. CSS owns
+// the visual transitions — JS just flips the attribute. State persists
+// across reloads via localStorage so users who collapsed it stay
+// collapsed; default if nothing stored is "open".
+const SIDEBAR_LS_KEY = 'rems_sidebar_state';
+const sidebar       = q('#sidebar');
 const sidebarToggle = q('#sidebar-toggle');
 
-function checkMobile() {
-  const isMobile = window.innerWidth <= 768;
-  if (sidebarToggle) sidebarToggle.style.display = isMobile ? '' : 'none';
+function applySidebarState(state) {
+  if (state !== 'open' && state !== 'closed') state = 'open';
+  document.body.setAttribute('data-sidebar', state);
+  try { localStorage.setItem(SIDEBAR_LS_KEY, state); } catch (_) {}
 }
-checkMobile();
-window.addEventListener('resize', checkMobile);
 
-sidebarToggle?.addEventListener('click', () => sidebar?.classList.toggle('open'));
+// Restore persisted state on boot:
+//   · narrow screens get auto-collapsed (the floating sidebar overlays
+//     content on mobile — defaulting to open eats the screen)
+//   · wider screens honour the user's last choice, defaulting to open
+const isNarrow = window.matchMedia?.('(max-width: 768px)')?.matches;
+try {
+  const saved = localStorage.getItem(SIDEBAR_LS_KEY);
+  if (isNarrow)         applySidebarState('closed');
+  else if (saved === 'closed') applySidebarState('closed');
+} catch (_) {}
+
+sidebarToggle?.addEventListener('click', () => {
+  const current = document.body.getAttribute('data-sidebar') || 'open';
+  applySidebarState(current === 'open' ? 'closed' : 'open');
+});
+
+// On narrow screens, close the sidebar when the user clicks anywhere
+// OUTSIDE it (it overlays content there, so taps on content imply
+// "done with the menu"). On desktop this is a no-op — the sidebar is
+// part of the layout and shouldn't auto-collapse.
 document.addEventListener('click', (e) => {
-  if (sidebar?.classList.contains('open') && !sidebar.contains(e.target) && e.target !== sidebarToggle) {
-    sidebar.classList.remove('open');
-  }
+  if (!window.matchMedia?.('(max-width: 768px)')?.matches) return;
+  if (document.body.getAttribute('data-sidebar') !== 'open') return;
+  if (sidebar?.contains(e.target))      return;
+  if (sidebarToggle?.contains(e.target)) return;
+  applySidebarState('closed');
 });
 
 // ─────────────────────────────────────────────────────────────────
 // NOTIFICATIONS BUTTON
 // ─────────────────────────────────────────────────────────────────
-q('#btn-notifications')?.addEventListener('click', () => switchTab('notifications'));
+// Bell now jumps to the OVERVIEW tab (full feed lives there since the
+// dedicated notifications tab was removed). Scrolls the overview-notifs
+// card into view so the list is immediately visible.
+q('#btn-notifications')?.addEventListener('click', () => {
+  switchTab('overview');
+  // Defer one frame so switchTab's DOM updates are applied before we
+  // scroll — otherwise the panel is still display:none.
+  requestAnimationFrame(() => {
+    document.querySelector('#overview-notifs')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  });
+});
 
 // ─────────────────────────────────────────────────────────────────
 // MODAL HELPERS — primitives live in ./dashboard/ui-helpers.js.
@@ -234,12 +329,18 @@ async function loadProfile() {
     if (navItemOrg) navItemOrg.style.display = hasOrg ? '' : 'none';
     if (!hasOrg && currentTab === 'org') switchTab('profile', { updateHash: true });
 
-    // Sidebar Organization section — приглашает / список заявок на
-    // вступление видны только владельцу. Employee видит только
-    // сами заявки на ремонт, без org-management.
+    // Sidebar Organization section visibility:
+    //   · Section header ("Организация") shows for ANY approved member
+    //     (so newly-approved employees see the section + their org tab).
+    //   · "Сотрудники" sub-item is owner-only (manage-others permission).
+    //   · "Ваша организация" sub-item is approved-member-only — handled
+    //     above near `navItemOrg.style.display = hasOrg ? ...`.
+    // This is the fix for the "approved employee can't see their org tab"
+    // bug: previously the entire section was gated on `canManage`, which
+    // hid the org link from any non-owner.
     const canManage = role === 'owner';
-    q('#org-nav-section').style.display = (hasOrg && canManage) ? '' : 'none';
-    q('#nav-item-members').style.display = (hasOrg && canManage) ? '' : 'none';
+    q('#org-nav-section').style.display    = hasOrg                ? '' : 'none';
+    q('#nav-item-members').style.display   = (hasOrg && canManage) ? '' : 'none';
     q('#no-org-notice')?.classList.toggle('hidden', hasOrg);
 
     // ── Populate the «Ваша организация» tab ────────────────────
@@ -256,6 +357,9 @@ async function loadProfile() {
     toast(errorMessage(err), 'error');
   } finally {
     stopLoader();
+    // No hidePageLoader() here — the overlay was already dismissed at
+    // module-init time (right after imports). Per the new spec, the
+    // moment dashboard JS started running counts as "page rendered".
   }
 }
 
@@ -401,35 +505,191 @@ wireMediaAttach({
 // ─────────────────────────────────────────────────────────────────
 // MEMBERS
 // ─────────────────────────────────────────────────────────────────
+/* ── Members tab renderer ─────────────────────────────────────────
+   Renders TWO lists:
+     • #pending-list  → owner-only review queue with Approve/Reject
+                        buttons inline on each row
+     • #approved-list → directory of approved members (owner first,
+                        rest alphabetical), no action buttons (clicking
+                        a future row could open a member profile drawer).
+   Each row uses the same identity-card layout as the profile/org
+   header strip: avatar + name + masked email/phone + department +
+   "В организации с <date>". */
+
+function formatJoinDate(iso) {
+  if (!iso) return '—';
+  return new Date(iso).toLocaleDateString(getLang() === 'en' ? 'en-US' : 'ru-RU', {
+    day: '2-digit', month: 'long', year: 'numeric',
+  });
+}
+
+function memberRowHTML(m, opts = {}) {
+  const isPending = opts.pending === true;
+  const isOwner   = m.org_role === 'owner';
+  const isSelf    = _userProfile?.id != null && Number(_userProfile.id) === Number(m.id);
+
+  // Avatar tile: image if URL present, otherwise initials.
+  const avatarHTML = m.avatar?.url
+    ? `<img src="${escapeHTML(m.avatar.url)}" alt="">`
+    : `<span>${escapeHTML(initials(m.full_name))}</span>`;
+
+  // Contact line — prefer email, fall back to phone. Both pre-masked.
+  const contact = m.email_masked || m.phone_masked || '—';
+
+  // Secondary meta line: department · (joined-date | applied-date).
+  const dateKey = isPending ? 'members.applied_at' : 'members.joined_at';
+  const dateStr = t(dateKey, { date: formatJoinDate(m.joined_at) });
+  const dept    = m.department || t('members.no_department');
+
+  // "Это вы" chip — only on the directory list (not the pending queue,
+  // since the queue contains other people).
+  const selfBadge = (isSelf && !isPending)
+    ? `<span class="members-row-self">${t('members.you')}</span>`
+    : '';
+
+  // Stats pills — only meaningful on approved rows; pending users
+  // haven't been assigned any requests yet.
+  const stats = !isPending && m.stats ? `
+    <div class="members-row-stats">
+      <span class="members-stat is-active" title="${t('members.stat_active')}">
+        <span class="members-stat-num">${m.stats.active ?? 0}</span>
+        <span>${t('members.stat_active')}</span>
+      </span>
+      <span class="members-stat is-closed" title="${t('members.stat_closed')}">
+        <span class="members-stat-num">${m.stats.closed ?? 0}</span>
+        <span>${t('members.stat_closed')}</span>
+      </span>
+    </div>` : '';
+
+  // Right-side action cluster. Pending → Approve / Reject; Approved →
+  // role chip + (for the owner viewing OTHERS) a remove button.
+  const canRemove = !isPending && !isSelf && !isOwner && _userProfile?.org_role === 'owner';
+  let rightHTML;
+  if (isPending) {
+    rightHTML = `
+      <div class="members-row-actions">
+        <button class="btn btn-secondary btn-sm btn-approve" data-id="${m.id}">
+          <i class="ph ph-check"></i>
+          <span>${t('members.approve')}</span>
+        </button>
+        <button class="btn btn-danger btn-sm btn-reject" data-id="${m.id}">
+          <i class="ph ph-x"></i>
+          <span>${t('members.reject')}</span>
+        </button>
+      </div>`;
+  } else {
+    rightHTML = `
+      <div class="members-row-actions">
+        <span class="badge ${isOwner ? 'badge-warning' : 'badge-default'}">${t(isOwner ? 'roles.owner' : 'roles.employee')}</span>
+        ${canRemove ? `
+          <button class="members-row-delete btn-remove" data-id="${m.id}" data-name="${escapeHTML(m.full_name)}"
+                  title="${t('members.remove')}" aria-label="${t('members.remove')}">
+            <i class="ph-bold ph-trash"></i>
+          </button>` : ''}
+      </div>`;
+  }
+
+  return `
+    <div class="members-row" data-id="${m.id}">
+      <div class="avatar avatar-md members-row-avatar">${avatarHTML}</div>
+      <div class="members-row-text">
+        <div class="members-row-name">
+          ${escapeHTML(m.full_name)}
+          ${selfBadge}
+        </div>
+        <div class="members-row-contact">${escapeHTML(contact)}</div>
+        <div class="members-row-meta">
+          <span>${escapeHTML(dept)}</span>
+          <span class="members-row-sep">·</span>
+          <span>${escapeHTML(dateStr)}</span>
+        </div>
+      </div>
+      ${stats}
+      ${rightHTML}
+    </div>`;
+}
+
 async function loadMembers() {
   const tabEl = q('#tab-members');
   const stopLoader = tabEl ? attachLoader({ container: tabEl }) : null;
   try {
-    const data = await members.listPending();
-    const list = data.data || [];
-    const section = q('#pending-section');
-    const el      = q('#pending-list');
-    if (!list.length) { if (section) section.style.display = 'none'; return; }
-    if (section) section.style.display = '';
-    if (!el) return;
-    el.innerHTML = list.map(m => `
-      <div class="notification-item" style="padding:.75rem 1rem; border-bottom:1px solid var(--clr-border);">
-        <div class="avatar avatar-sm">${initials(m.full_name || m.contact || '?')}</div>
-        <div class="notification-content">
-          <p class="notification-text" style="font-weight:500;">${escapeHTML(m.full_name || m.contact || '—')}</p>
-          <p class="notification-time">${roleLabel('employee')}</p>
-        </div>
-        <div style="display:flex;gap:.5rem;flex-shrink:0;">
-          <button class="btn btn-secondary btn-sm btn-approve" data-id="${m.user_id}">${t('members.approve')}</button>
-          <button class="btn btn-danger btn-sm btn-reject"     data-id="${m.user_id}">${t('members.reject')}</button>
-        </div>
-      </div>`).join('');
+    const data = await members.list();
+    const approved = data.data?.approved || [];
+    const pending  = data.data?.pending  || [];
 
-    el.querySelectorAll('.btn-approve').forEach(btn => btn.addEventListener('click', () => manageMember(btn.dataset.id, 'approved')));
-    el.querySelectorAll('.btn-reject').forEach(btn  => btn.addEventListener('click', () => manageMember(btn.dataset.id, 'rejected')));
-  } catch (_) {}
-  finally { stopLoader?.(); }
+    // ── Pending section (owner-only — backend returns [] for non-owners). ──
+    const pendingSection = q('#pending-section');
+    const pendingList    = q('#pending-list');
+    if (pendingList) {
+      if (!pending.length) {
+        if (pendingSection) pendingSection.style.display = 'none';
+      } else {
+        if (pendingSection) pendingSection.style.display = '';
+        pendingList.innerHTML = pending.map(m => memberRowHTML(m, { pending: true })).join('');
+        pendingList.querySelectorAll('.btn-approve').forEach(btn => btn.addEventListener('click', () => manageMember(btn.dataset.id, 'approved')));
+        pendingList.querySelectorAll('.btn-reject') .forEach(btn => btn.addEventListener('click', () => manageMember(btn.dataset.id, 'rejected')));
+      }
+    }
+
+    // ── Approved directory. Always shown (empty-state if 0 — shouldn't
+    //    happen since the caller themselves is in the list, but keep
+    //    the fallback for safety). ──
+    const approvedList = q('#approved-list');
+    const countBadge   = q('#approved-count');
+    if (approvedList) {
+      if (!approved.length) {
+        approvedList.innerHTML = `
+          <div class="empty-state">
+            <i class="ph ph-users"></i>
+            <p class="empty-state-title">${t('members.empty')}</p>
+          </div>`;
+      } else {
+        approvedList.innerHTML = approved.map(m => memberRowHTML(m)).join('');
+        // Wire the per-row remove buttons. Native confirm() is fine
+        // for now — a custom modal can replace it later if the rest
+        // of the UI gets polished further.
+        approvedList.querySelectorAll('.btn-remove').forEach(btn => {
+          btn.addEventListener('click', () => removeMember(btn.dataset.id, btn.dataset.name));
+        });
+      }
+    }
+    if (countBadge) countBadge.textContent = String(approved.length);
+  } catch (err) {
+    toast(errorMessage(err), 'error');
+  } finally {
+    stopLoader?.();
+  }
 }
+
+/* Pending target for the remove-member modal. Set on open by
+   `removeMember()`, consumed by the modal's confirm-button click. */
+let _pendingRemoveMemberId = null;
+
+function removeMember(userId, name) {
+  if (!userId) return;
+  _pendingRemoveMemberId = userId;
+  const nameEl = q('#remove-member-name');
+  if (nameEl) nameEl.textContent = name || '—';
+  openModal('remove-member-modal');
+}
+
+q('#btn-remove-member-confirm')?.addEventListener('click', async () => {
+  const id = _pendingRemoveMemberId;
+  if (!id) return;
+  const btn = q('#btn-remove-member-confirm');
+  setLoading(btn, true);
+  try {
+    await members.remove(id);
+    closeModal('remove-member-modal');
+    toast(t('members.removed_toast'), 'ok');
+    _pendingRemoveMemberId = null;
+    loadMembers();
+  } catch (err) {
+    toast(errorMessage(err), 'error');
+  } finally {
+    setLoading(btn, false);
+  }
+});
 
 async function manageMember(userId, action) {
   try {
@@ -477,15 +737,49 @@ function initSocketConn() {
     const socket = connectSocket();
     if (!socket) return;
 
-    socketOn('user:notification', (data) => {
-      const notif = { ...data, id: data.id || Date.now(), created_at: new Date().toISOString(), read_at: null };
-      addNotification(notif);
-      toast(data.message_text || 'Новое уведомление', 'info');
+    // Per-user push. addNotification() normalises camelCase ↔ snake_case
+    // internally AND plays the sound — we just feed it the raw socket
+    // payload. The toast uses resolveNotifMessage() so an i18n-keyed
+    // payload (`i18n:notifications.types.new_session`) shows the
+    // localized sentence instead of the raw key.
+    // Some notification types signal a server-side change to the
+    // CURRENT user's membership/role state. The dashboard caches that
+    // state in `_userProfile` for tab-visibility / org-grant checks —
+    // so on those types we re-fetch the profile, otherwise the sidebar's
+    // "Организация" tab stays hidden until a manual page reload even
+    // though the user is now an approved member.
+    const MEMBERSHIP_REFRESH_TYPES = new Set([
+      'join_accepted',
+      'join_rejected',
+      'join_accepted_alt_role',
+    ]);
+    socketOn('user:notification', (payload) => {
+      // DEFENSIVE GUARD: if the payload has a recipientId AND it isn't
+      // the current user, drop it. The server already routes
+      // `user:notification` to a single room (user:${recipientId}), so
+      // this should never happen — but stale socket-to-room mappings
+      // across rapid logouts/logins HAVE produced cross-user toasts in
+      // testing (e.g., owner seeing "Ваша заявка одобрена" toast after
+      // approving someone). Comparing against the freshly-loaded
+      // profile id closes the loophole regardless of room state.
+      if (
+        payload?.recipientId != null &&
+        _userProfile?.id != null &&
+        Number(payload.recipientId) !== Number(_userProfile.id)
+      ) return;
+
+      addNotification(payload);
+      const text = resolveNotifBody(payload) || resolveNotifTitle(payload) || t('notifications.title');
+      toast(text, 'info');
+      if (MEMBERSHIP_REFRESH_TYPES.has(payload?.type)) {
+        loadProfile();
+      }
     });
 
-    socketOn('org:notification', (data) => {
-      const notif = { ...data, id: data.id || Date.now(), created_at: new Date().toISOString(), read_at: null };
-      addNotification(notif);
+    // Org-wide push — no toast (it can flood when many events fire);
+    // the bell badge + list refresh are enough signal.
+    socketOn('org:notification', (payload) => {
+      addNotification(payload);
     });
   } catch (_) {}
 }
@@ -510,6 +804,11 @@ onLangChange(() => {
   // OS strings) inside loadSessions(); re-run it so the language switch
   // takes effect immediately on the open Profile tab.
   if (currentTab === 'profile') loadSessions().catch(() => {});
+  // Members list embeds locale-dependent strings (role chips, "это
+  // вы", "В организации с DD MMM YYYY", "В работе" / "Закрыто"). Re-fire
+  // loadMembers if the tab is currently visible so the user sees the
+  // translation update on lang switch without re-opening the tab.
+  if (currentTab === 'members') loadMembers().catch(() => {});
   rerenderNotifications();
 });
 

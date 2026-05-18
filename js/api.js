@@ -197,6 +197,10 @@ export const org = {
 // PATCH /api/orgs/members/manage   body: { userId, action }
 // ─────────────────────────────────────────────────────────────────
 export const members = {
+  /** GET full directory: { approved, pending } arrays. */
+  list:        () => request('GET', '/orgs/members'),
+
+  /** Owner-only pending queue (legacy modal flow). */
   listPending: () => request('GET', '/orgs/members/pending'),
 
   /** contact: email, phone, or numeric userId string. Role is always
@@ -207,6 +211,10 @@ export const members = {
       not available for the owner/employee model. */
   manage: (userId, action) =>
     request('PATCH', '/orgs/members/manage', { userId, action }),
+
+  /** Owner-only hard-detach from the org. Marks membership as rejected;
+      historical request/audit references stay intact. */
+  remove: (userId) => request('DELETE', `/orgs/members/${userId}`),
 };
 
 // ─────────────────────────────────────────────────────────────────
@@ -220,11 +228,19 @@ export const notifications = {
     return request('GET', `/notifications${qs ? '?' + qs : ''}`);
   },
 
-  /** Mark a single notification as read. */
-  markRead: (id) => request('PATCH', `/notifications/${id}/read`),
+  /** Mark a single notification as read (idempotent). */
+  markRead:   (id) => request('PATCH', `/notifications/${id}/read`),
 
-  /** Convenience: mark multiple notifications read in parallel. */
-  markAllRead: (ids) => Promise.all(ids.map(id => notifications.markRead(id))),
+  /** Mark a single notification as unread again (resets read_at). */
+  markUnread: (id) => request('PATCH', `/notifications/${id}/unread`),
+
+  /**
+   * Mark ALL of the user's unread notifications as read in one
+   * backend round-trip. Replaces the previous Promise.all-of-N-PATCH
+   * approach; the server now owns the bulk transition. Resolves to
+   * `{ marked_count }`.
+   */
+  markAllRead: () => request('PATCH', `/notifications/mark-all-read`),
 };
 
 // ─────────────────────────────────────────────────────────────────
